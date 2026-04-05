@@ -7,8 +7,9 @@ FastAPI application entry point.
 from contextlib import asynccontextmanager
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import APIRouter, FastAPI, HTTPException, Query, Request
 from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 
 from app.search import get_conn, get_corpora, get_refs, search_by_vector, search_by_verse
 
@@ -40,17 +41,44 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Verse Similarity Search", lifespan=lifespan)
 
+templates = Jinja2Templates(directory="templates")
+api = APIRouter(prefix="/api/v1")
+
 
 # ---------------------------------------------------------------------------
-# API routes  (must be registered before StaticFiles catch-all)
+# Page routes
 # ---------------------------------------------------------------------------
 
-@app.get("/corpora")
+@app.get("/")
+def index(request: Request):
+    return templates.TemplateResponse(request, "index.html", {"page": "search"})
+
+
+@app.get("/about")
+def about(request: Request):
+    return templates.TemplateResponse(request, "about.html", {"page": "about"})
+
+
+@app.get("/map")
+def map_page(request: Request):
+    return templates.TemplateResponse(request, "map.html", {"page": "map"})
+
+
+@app.get("/passage")
+def passage_page(request: Request):
+    return templates.TemplateResponse(request, "passage.html", {"page": "passage"})
+
+
+# ---------------------------------------------------------------------------
+# API routes — /api/v1/...
+# ---------------------------------------------------------------------------
+
+@api.get("/corpora")
 def corpora():
     return get_corpora()
 
 
-@app.get("/passage")
+@api.get("/passage")
 def passage(
     corpus: str = Query(...),
     ref: str = Query(...),
@@ -72,7 +100,7 @@ def passage(
     return {"text": row[0], "unit_label": row[1], "corpus": row[2], "tradition": row[3]}
 
 
-@app.get("/refs")
+@api.get("/refs")
 def refs(
     corpus: str = Query(...),
     q: str = Query(""),
@@ -81,7 +109,7 @@ def refs(
     return get_refs(corpus, q, limit)
 
 
-@app.get("/search")
+@api.get("/search")
 def search(
     q: str = Query(..., description="Free-text query"),
     limit: int = Query(50, ge=1, le=200),
@@ -101,7 +129,7 @@ def search(
     return results
 
 
-@app.get("/verse")
+@api.get("/verse")
 def verse(
     corpus: str = Query(..., description="Corpus name"),
     ref: str = Query(..., description="unit_label, e.g. 'John 3:16'"),
@@ -123,8 +151,11 @@ def verse(
     return results
 
 
+app.include_router(api)
+
+
 # ---------------------------------------------------------------------------
 # Static files — served last so API routes take precedence
 # ---------------------------------------------------------------------------
 
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
+app.mount("/static", StaticFiles(directory="static"), name="static")

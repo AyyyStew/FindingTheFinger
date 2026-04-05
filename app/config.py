@@ -17,6 +17,14 @@ CORPUS_ALLOWLIST: list[str] = [
     "Analects of Confucius (Legge)",
     # Taoist
     "Dao De Jing (Linnell)",
+    "Chuang Tzu (Giles)",
     # Norse
     "Poetic Edda (Bellows)",
+    # Shinto
+    "Kojiki",
+    # Sikh
+    "Sri Guru Granth Sahib",
+    # Zoroastrian
+    "Avesta: Vendidad",
+    "Avesta: Yasna",
 ]

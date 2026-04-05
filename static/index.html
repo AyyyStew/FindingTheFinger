@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Verse Similarity Search</title>
+  <title>Finding The Finger: Verse Similarity Search</title>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <style>
     *,
@@ -33,16 +33,24 @@
       color: var(--text);
       font-family: 'Segoe UI', system-ui, sans-serif;
       min-height: 100vh;
-      padding: 2rem 1rem;
+      display: flex;
+      flex-direction: column;
     }
 
-    header {
-      text-align: center;
-      margin-bottom: 2.5rem;
+    /* Site nav */
+    .site-nav {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 1.5rem;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-shrink: 0;
     }
 
-    header h1 {
-      font-size: 1.9rem;
+    .site-nav-brand {
+      font-size: 1.1rem;
       font-weight: 700;
       letter-spacing: -0.02em;
       background: linear-gradient(135deg, var(--accent), var(--accent2));
@@ -51,22 +59,59 @@
       background-clip: text;
     }
 
-    header p {
+    .site-nav-divider {
+      width: 1px;
+      height: 18px;
+      background: var(--border);
+    }
+
+    .site-nav-sub {
+      font-size: 0.8rem;
       color: var(--muted);
-      margin-top: 0.4rem;
-      font-size: 0.9rem;
+    }
+
+    /* Site footer */
+    .site-footer {
+      border-top: 1px solid var(--border);
+      padding: 1.25rem 1.5rem;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.78rem;
+      margin-top: auto;
+      flex-shrink: 0;
+    }
+
+    /* Page header */
+    .page-header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    .page-header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text);
+    }
+
+    .page-header p {
+      color: var(--muted);
+      margin-top: 0.35rem;
+      font-size: 0.88rem;
     }
 
     .container {
       max-width: 860px;
       margin: 0 auto;
+      padding: 2rem 1rem;
+      flex: 1;
     }
 
     /* Tabs */
     .tabs {
       display: flex;
       gap: 0.25rem;
-      background: var(--surface);
+      background: var(--bg);
       border: 1px solid var(--border);
       border-radius: 10px;
       padding: 0.35rem;
@@ -184,13 +229,14 @@
       margin-bottom: 1.5rem;
     }
 
-    .filters-section h3 {
-      font-size: 0.8rem;
+    .filters-section h3,
+    .filters-label {
+      font-size: 0.78rem;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.05em;
       color: var(--muted);
-      margin-bottom: 0.75rem;
+      margin-bottom: 0.5rem;
     }
 
     .filter-chips {
@@ -214,19 +260,11 @@
       color: var(--muted);
     }
 
-    .chip input[type="checkbox"] {
-      accent-color: var(--accent);
-      cursor: pointer;
-    }
+    .chip input[type="checkbox"] { display: none; }
 
-    .chip.checked {
-      border-color: var(--accent);
-      color: var(--accent);
-    }
+    .chip .chip-icon { font-size: 0.9rem; line-height: 1; }
 
-    .chip.dim {
-      opacity: 0.4;
-    }
+    .chip.dim { opacity: 0.4; }
 
     /* Autocomplete */
     .autocomplete-wrap {
@@ -337,16 +375,12 @@
       letter-spacing: 0.03em;
     }
 
-    .badge-tradition {
-      background: rgba(108, 140, 255, 0.15);
-      color: var(--accent);
-      border: 1px solid rgba(108, 140, 255, 0.3);
-    }
-
+    .badge-tradition,
     .badge-corpus {
-      background: rgba(167, 139, 250, 0.12);
-      color: var(--accent2);
-      border: 1px solid rgba(167, 139, 250, 0.25);
+      border: 1px solid transparent;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
     }
 
     .ref {
@@ -479,22 +513,31 @@
 </head>
 
 <body>
+
+  <nav class="site-nav">
+    <span class="site-nav-brand">Finding The Finger</span>
+    <div class="site-nav-divider"></div>
+    <span class="site-nav-sub">Verse Similarity Search</span>
+  </nav>
+
   <div x-data="app()" x-init="init()" x-cloak class="container">
 
-    <header>
+    <header class="page-header">
       <h1>Verse Similarity Search</h1>
-      <p>Find semantically similar passages across traditions using AI embeddings</p>
+      <p>Find semantically similar passages across sacred traditions</p>
     </header>
 
-    <!-- Tabs -->
-    <div class="tabs">
-      <button class="tab-btn" :class="{active: activeTab==='verse'}" @click="activeTab='verse'">Verse Lookup</button>
-      <button class="tab-btn" :class="{active: activeTab==='text'}" @click="activeTab='text'">Free Text Search</button>
-    </div>
+    <!-- Control panel -->
+    <div class="search-card" style="margin-bottom:1.5rem">
 
-    <!-- Verse lookup -->
-    <div x-show="activeTab==='verse'">
-      <div class="search-card">
+      <!-- Tabs -->
+      <div class="tabs" style="margin-bottom:1.25rem">
+        <button class="tab-btn" :class="{active: activeTab==='verse'}" @click="activeTab='verse'">Verse Lookup</button>
+        <button class="tab-btn" :class="{active: activeTab==='text'}" @click="activeTab='text'">Free Text Search</button>
+      </div>
+
+      <!-- Verse inputs -->
+      <div x-show="activeTab==='verse'">
         <div class="row">
           <div class="field">
             <label>Corpus</label>
@@ -507,8 +550,8 @@
           <div class="field">
             <label>Reference</label>
             <div class="autocomplete-wrap" @click.outside="acOpen=false">
-              <input type="text" x-model="refInput" autocomplete="off" placeholder="e.g. John 3:16" @focus="acFocus()"
-                @input="acInput()" @keydown="acKeydown($event)" />
+              <input type="text" x-model="refInput" autocomplete="off" placeholder="e.g. John 3:16"
+                @focus="acFocus()" @input="acInput()" @keydown="acKeydown($event)" />
               <div x-show="acOpen" class="autocomplete-dropdown">
                 <template x-if="acItems.length === 0">
                   <div class="ac-empty">No matches</div>
@@ -521,73 +564,73 @@
             </div>
           </div>
         </div>
-        <!-- Source verse preview -->
-        <div x-show="sourceVerse && activeTab==='verse'" class="source-card" style="margin-bottom:1.5rem">
+        <div x-show="sourceVerse" class="source-card" style="margin-top:1rem">
           <div class="source-header">
             <span class="source-label">Verse</span>
-            <span class="badge badge-tradition" x-text="sourceVerse?.tradition"></span>
-            <span class="badge badge-corpus" x-text="sourceVerse?.corpus"></span>
+            <span class="badge badge-tradition" :style="tradBadgeStyle(sourceVerse?.tradition)">
+              <span x-text="tradEmoji(sourceVerse?.tradition)"></span>
+              <span x-text="sourceVerse?.tradition"></span>
+            </span>
+            <span class="badge badge-corpus" :style="corpusBadgeStyle(sourceVerse?.corpus, sourceVerse?.tradition)">
+              <span x-text="corpusEmoji(sourceVerse?.corpus, sourceVerse?.tradition)"></span>
+              <span x-text="shortName(sourceVerse?.corpus || '')"></span>
+            </span>
             <span class="ref" x-text="sourceVerse?.unit_label"></span>
           </div>
           <div class="result-text" x-text="sourceVerse?.text"></div>
         </div>
-        <div class="field" style="margin-top:1.1rem">
-          <label>Results <span x-text="limitV" class="slider-val"></span></label>
-          <div class="slider-row">
-            <span style="font-size:.8rem;color:var(--muted)">5</span>
-            <input type="range" x-model.number="limitV" min="5" max="50" step="1" />
-            <span style="font-size:.8rem;color:var(--muted)">50</span>
-          </div>
-        </div>
-        <button class="search-btn" :disabled="loading || !acValid" @click="doVerseSearch()">Search</button>
       </div>
-    </div>
 
-    <!-- Free text search -->
-    <div x-show="activeTab==='text'">
-      <div class="search-card">
-        <div class="field">
+      <!-- Free text input -->
+      <div x-show="activeTab==='text'">
+        <div class="field" style="margin-bottom:0">
           <label>Query</label>
           <input type="text" x-model="queryInput" placeholder="e.g. Love your enemies and pray for them"
             @keydown.enter="doTextSearch()" />
         </div>
-        <div class="field">
-          <label>Results <span x-text="limitT" class="slider-val"></span></label>
-          <div class="slider-row">
-            <span style="font-size:.8rem;color:var(--muted)">5</span>
-            <input type="range" x-model.number="limitT" min="5" max="50" step="1" />
-            <span style="font-size:.8rem;color:var(--muted)">50</span>
-          </div>
+      </div>
+
+      <!-- Divider -->
+      <hr style="border:none;border-top:1px solid var(--border);margin:1.25rem 0">
+
+      <!-- Tradition & corpus filters -->
+      <div x-show="corpora.length > 0">
+        <div class="filters-label">Tradition</div>
+        <div class="filter-chips" style="margin-bottom:0.75rem">
+          <template x-for="t in traditions" :key="t">
+            <label class="chip" :class="{checked: tradEnabled[t]}"
+              :style="tradEnabled[t] ? `background:${tradColor(t)};border-color:${tradColor(t)};color:#0f1117` : ''"
+              @click.prevent="toggleTradition(t)">
+              <input type="checkbox" :checked="tradEnabled[t]" @click.stop />
+              <span class="chip-icon" x-text="tradEmoji(t)"></span>
+              <span x-text="t"></span>
+            </label>
+          </template>
         </div>
-        <button class="search-btn" :disabled="loading" @click="doTextSearch()">Search</button>
+        <div class="filters-label">Corpus</div>
+        <div class="filter-chips">
+          <template x-for="c in corpora" :key="c.corpus">
+            <label class="chip" :class="{checked: corpusEnabled[c.corpus], dim: !tradEnabled[c.tradition]}"
+              :style="corpusEnabled[c.corpus] ? `background:${tradColor(c.tradition)};border-color:${tradColor(c.tradition)};color:#0f1117` : ''"
+              :title="c.corpus" @click.prevent="toggleCorpus(c.corpus, c.tradition)">
+              <input type="checkbox" :checked="corpusEnabled[c.corpus]" @click.stop />
+              <span class="chip-icon" x-text="corpusEmoji(c.corpus, c.tradition)"></span>
+              <span x-text="shortName(c.corpus)"></span>
+            </label>
+          </template>
+        </div>
       </div>
+
+      <!-- Search button -->
+      <button class="search-btn" style="margin-top:1.25rem"
+        :disabled="loading || (activeTab==='verse' ? !acValid : !queryInput.trim())"
+        @click="activeTab==='verse' ? doVerseSearch() : doTextSearch()">
+        Search
+      </button>
+
     </div>
 
-
-
-    <!-- Filters -->
-    <div class="filters-section" x-show="corpora.length > 0">
-      <h3>Tradition</h3>
-      <div class="filter-chips">
-        <template x-for="t in traditions" :key="t">
-          <label class="chip" :class="{checked: tradEnabled[t]}" @click.prevent="toggleTradition(t)">
-            <input type="checkbox" :checked="tradEnabled[t]" @click.stop />
-            <span x-text="t"></span>
-          </label>
-        </template>
-      </div>
-
-      <h3 style="margin-top:1rem">Corpus</h3>
-      <div class="filter-chips">
-        <template x-for="c in corpora" :key="c.corpus">
-          <label class="chip" :class="{checked: corpusEnabled[c.corpus], dim: !tradEnabled[c.tradition]}"
-            :title="c.corpus" @click.prevent="toggleCorpus(c.corpus)">
-            <input type="checkbox" :checked="corpusEnabled[c.corpus]" @click.stop />
-            <span x-text="shortName(c.corpus)"></span>
-          </label>
-        </template>
-      </div>
-    </div>
+    <div id="results-anchor"></div>
 
     <!-- Loading -->
     <div x-show="loading" class="status">
@@ -612,8 +655,14 @@
       <template x-for="r in cards" :key="r.passage_id">
         <div class="result-card">
           <div class="result-meta">
-            <span class="badge badge-tradition" x-text="r.tradition"></span>
-            <span class="badge badge-corpus" x-text="r.corpus"></span>
+            <span class="badge badge-tradition" :style="tradBadgeStyle(r.tradition)">
+              <span x-text="tradEmoji(r.tradition)"></span>
+              <span x-text="r.tradition"></span>
+            </span>
+            <span class="badge badge-corpus" :style="corpusBadgeStyle(r.corpus, r.tradition)">
+              <span x-text="corpusEmoji(r.corpus, r.tradition)"></span>
+              <span x-text="shortName(r.corpus)"></span>
+            </span>
             <span class="ref" x-text="r.unit_label || ''"></span>
           </div>
           <div class="similarity-bar">
@@ -632,6 +681,34 @@
   </div><!-- /x-data -->
 
   <script>
+    // ---- Tradition & corpus iconography ----
+
+    const TRADITION_CONFIG = {
+      // emoji: Unicode/emoji symbol  color: fills chip bg when selected, tints badge
+      'Abrahamic':   { emoji: '📜', color: '#f5c518' }, // golden yellow — scroll (neutral across all Abrahamic texts)
+      'Buddhist':    { emoji: '☸',  color: '#fb923c' }, // saffron orange — dharma wheel (U+2638)
+      'Confucian':   { emoji: '📖', color: '#34d399' }, // emerald green — open book (no dedicated Confucian symbol)
+      'Dharmic':     { emoji: '🕉', color: '#c084fc' }, // purple — Om (U+1F549)
+      'Norse':       { emoji: '🔨', color: '#93c5fd' }, // steel blue — hammer (Mjolnir)
+      'Shinto':      { emoji: '⛩', color: '#f9a8d4' }, // cherry blossom pink — torii gate (U+26E9)
+      'Sikh':        { emoji: '☬',  color: '#22d3ee' }, // cyan — Khanda (U+262C, may not render on all devices)
+      'Taoist':      { emoji: '☯',  color: '#d4d4d8' }, // near-white — yin yang (U+262F)
+      'Zoroastrian': { emoji: '🔥', color: '#f87171' }, // red — fire
+    };
+
+    // Per-corpus overrides (tradition emoji is used as fallback)
+    const CORPUS_EMOJI_MAP = {
+      'Bible — KJV (King James Version)': '✝️',
+      'Quran (Clear Quran Translation)':  '☪️',
+    };
+
+    function hexToRgba(hex, alpha) {
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      return `rgba(${r},${g},${b},${alpha})`;
+    }
+
     function app() {
       return {
         // Corpus data & filter state
@@ -644,9 +721,6 @@
         selectedCorpus: '',
         refInput: '',
         queryInput: '',
-        limitV: 10,
-        limitT: 10,
-
         // Pagination
         PAGE_SIZE: 50,
         cards: [],
@@ -694,6 +768,25 @@
           return this.apiHasMore;
         },
 
+        tradColor(t) { return TRADITION_CONFIG[t]?.color || 'var(--accent)'; },
+        tradEmoji(t) { return TRADITION_CONFIG[t]?.emoji || '📖'; },
+
+        corpusEmoji(corpus, tradition) {
+          return CORPUS_EMOJI_MAP[corpus] || this.tradEmoji(tradition);
+        },
+
+        tradBadgeStyle(t) {
+          const c = this.tradColor(t);
+          if (!c.startsWith('#')) return '';
+          return `color:${c};background:${hexToRgba(c, 0.15)};border-color:${hexToRgba(c, 0.3)}`;
+        },
+
+        corpusBadgeStyle(corpus, tradition) {
+          const c = this.tradColor(tradition);
+          if (!c.startsWith('#')) return '';
+          return `color:${c};background:${hexToRgba(c, 0.08)};border-color:${hexToRgba(c, 0.2)}`;
+        },
+
         shortName(name) {
           return name.replace(/\s*\([^)]+\)\s*$/, '').replace(/^Bible\s*[—-]\s*/, '');
         },
@@ -707,12 +800,14 @@
           this.corpora.filter(c => c.tradition === t)
             .forEach(c => { updated[c.corpus] = next; });
           this.corpusEnabled = updated;
-          if (this.searched && !this.loading) this.startSearch();
         },
 
-        toggleCorpus(corpus) {
-          this.corpusEnabled = { ...this.corpusEnabled, [corpus]: !this.corpusEnabled[corpus] };
-          if (this.searched && !this.loading) this.startSearch();
+        toggleCorpus(corpus, tradition) {
+          const next = !this.corpusEnabled[corpus];
+          this.corpusEnabled = { ...this.corpusEnabled, [corpus]: next };
+          if (next && tradition && !this.tradEnabled[tradition]) {
+            this.tradEnabled = { ...this.tradEnabled, [tradition]: true };
+          }
         },
 
         // ---- Search ----
@@ -746,6 +841,7 @@
             this.errorMsg = e.message;
           } finally {
             this.loading = false;
+            this._scrollTo('results-anchor', 800);
           }
         },
 
@@ -831,6 +927,23 @@
           }
         },
 
+        _scrollTo(id, duration = 600) {
+          const el = document.getElementById(id);
+          if (!el) return;
+          const start = window.scrollY;
+          const target = el.getBoundingClientRect().top + start - 16;
+          const diff = target - start;
+          let startTime = null;
+          const ease = t => t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2;
+          function step(ts) {
+            if (!startTime) startTime = ts;
+            const t = Math.min((ts - startTime) / duration, 1);
+            window.scrollTo(0, start + diff * ease(t));
+            if (t < 1) requestAnimationFrame(step);
+          }
+          requestAnimationFrame(step);
+        },
+
         acSelect(item) {
           this.refInput = item;
           this.acValid = true;
@@ -844,6 +957,11 @@
       };
     }
   </script>
+
+  <footer class="site-footer">
+    Finding The Finger &mdash; semantic search across sacred texts
+  </footer>
+
 </body>
 
 </html>
