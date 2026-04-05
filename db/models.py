@@ -1,53 +1,92 @@
 """
 db/models.py
 
-Pydantic models used to validate records before insertion.
-These are plain data containers — not ORM models.
+SQLAlchemy ORM models for the Finding The Finger database.
 """
 
-from __future__ import annotations
-from typing import Any
-from pydantic import BaseModel, field_validator
+from pgvector.sqlalchemy import Vector
+from sqlalchemy import (
+    BigInteger, ForeignKey, Index, Integer, Text, JSON
+)
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
-class TraditionRecord(BaseModel):
-    name: str  # "Abrahamic", "Dharmic", "Political", "Music"
+class Base(DeclarativeBase):
+    pass
 
 
-class CorpusRecord(BaseModel):
-    tradition_name: str       # looked up / inserted into corpus_tradition
-    name: str                 # "KJV Bible", "Tao Te Ching (Legge)"
-    type: str                 # scripture | legal | news | music | literature
-    language: str = "en"      # ISO 639-1
-    era: str | None = None    # ancient | medieval | modern
-    metadata: dict[str, Any] = {}
+class Tradition(Base):
+    __tablename__ = "tradition"
+
+    id:   Mapped[int]  = mapped_column(Integer, primary_key=True)
+    name: Mapped[str]  = mapped_column(Text, nullable=False, unique=True)
+
+    corpora: Mapped[list["Corpus"]] = relationship(back_populates="tradition")
 
 
-class PassageRecord(BaseModel):
-    corpus_id: int
-    book: str | None = None
-    section: str | None = None
-    unit_number: int | None = None
-    unit_label: str | None = None
-    text: str
-    metadata: dict[str, Any] = {}
+class Corpus(Base):
+    __tablename__ = "corpus"
 
-    @field_validator("text")
-    @classmethod
-    def text_not_empty(cls, v: str) -> str:
-        if not v.strip():
-            raise ValueError("passage text must not be empty")
-        return v.strip()
+    id:           Mapped[int]         = mapped_column(Integer, primary_key=True)
+    tradition_id: Mapped[int]         = mapped_column(ForeignKey("tradition.id"), nullable=False)
+    name:         Mapped[str]         = mapped_column(Text, nullable=False, unique=True)
+    type:         Mapped[str | None]  = mapped_column(Text)
+    language:     Mapped[str | None]  = mapped_column(Text)
+    era:          Mapped[str | None]  = mapped_column(Text)
+    meta:         Mapped[dict | None] = mapped_column("metadata", JSON)
+
+    tradition: Mapped["Tradition"]       = relationship(back_populates="corpora")
+    levels:    Mapped[list["CorpusLevel"]] = relationship(back_populates="corpus")
+    units:     Mapped[list["Unit"]]       = relationship(back_populates="corpus")
 
 
-class EmbeddingRecord(BaseModel):
-    passage_id: int
-    model_name: str
-    vector: list[float]
+class CorpusLevel(Base):
+    """Defines the natural level names for each corpus at each height."""
+    __tablename__ = "corpus_level"
 
-    @field_validator("vector")
-    @classmethod
-    def vector_not_empty(cls, v: list[float]) -> list[float]:
-        if not v:
-            raise ValueError("embedding vector must not be empty")
-        return v
+    corpus_id: Mapped[int] = mapped_column(ForeignKey("corpus.id"), primary_key=True)
+    height:    Mapped[int] = mapped_column(Integer, primary_key=True)
+    name:      Mapped[str] = mapped_column(Text, nullable=False)  # 'Verse', 'Surah', 'Ayah'...
+
+    corpus: Mapped["Corpus"] = relationship(back_populates="levels")
+
+
+class Unit(Base):
+    """
+    A content node at any level of the hierarchy.
+
+    Height is leaf-up (0 = verse/leaf, 1 = chapter, 2 = book, ...).
+    Depth is root-down (0 = book, 1 = chapter, 2 = verse, ...).
+    Both are stored for query convenience.
+    Parent is None for root nodes (books).
+    """
+    __tablename__ = "unit"
+
+    id:        Mapped[int]         = mapped_column(BigInteger, primary_key=True)
+    corpus_id: Mapped[int]         = mapped_column(ForeignKey("corpus.id"), nullable=False)
+    parent_id: Mapped[int | None]  = mapped_column(BigInteger, ForeignKey("unit.id"))
+    depth:     Mapped[int]         = mapped_column(Integer, nullable=False)
+    height:    Mapped[int | None]  = mapped_column(Integer)
+    label:     Mapped[str | None]  = mapped_column(Text)
+    text:      Mapped[str | None]  = mapped_column(Text)
+    meta:      Mapped[dict | None] = mapped_column("metadata", JSON)
+
+    corpus:     Mapped["Corpus"]          = relationship(back_populates="units")
+    children:   Mapped[list["Unit"]]      = relationship(back_populates="parent")
+    parent:     Mapped["Unit | None"]     = relationship(back_populates="children", remote_side="Unit.id")
+    embeddings: Mapped[list["Embedding"]] = relationship(back_populates="unit")
+
+    __table_args__ = (
+        Index("ix_unit_corpus_height", "corpus_id", "height"),
+        Index("ix_unit_parent",        "parent_id"),
+    )
+
+
+class Embedding(Base):
+    __tablename__ = "embedding"
+
+    unit_id:    Mapped[int] = mapped_column(BigInteger, ForeignKey("unit.id"), primary_key=True)
+    model_name: Mapped[str] = mapped_column(Text, primary_key=True)
+    vector:     Mapped[list[float]] = mapped_column(Vector(768))
+
+    unit: Mapped["Unit"] = relationship(back_populates="embeddings")

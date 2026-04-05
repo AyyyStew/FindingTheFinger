@@ -1,5 +1,5 @@
 # Corpora included in search and browse.
-# Add corpus names here to expand coverage. Empty list = include everything.
+# Empty list = include everything.
 
 CORPUS_ALLOWLIST: list[str] = [
     # Abrahamic
@@ -17,14 +17,15 @@ CORPUS_ALLOWLIST: list[str] = [
     "Analects of Confucius (Legge)",
     # Taoist
     "Dao De Jing (Linnell)",
+    "Zhuangzi (Graham)",
     "Chuang Tzu (Giles)",
     # Norse
     "Poetic Edda (Bellows)",
     # Shinto
-    "Kojiki",
+    "Kojiki (Chamberlain)",
     # Sikh
     "Sri Guru Granth Sahib",
     # Zoroastrian
-    "Avesta: Vendidad",
-    "Avesta: Yasna",
+    "Yasna (Mills)",
+    "Vendidad (Darmesteter)",
 ]

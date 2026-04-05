@@ -62,7 +62,7 @@
               <span x-text="corpusEmoji(sourceVerse?.corpus, sourceVerse?.tradition)"></span>
               <span x-text="shortName(sourceVerse?.corpus || '')"></span>
             </span>
-            <span class="ref" x-text="sourceVerse?.unit_label"></span>
+            <span class="ref" x-text="sourceVerse?.label"></span>
           </div>
           <div class="result-text" x-text="sourceVerse?.text"></div>
         </div>
@@ -139,7 +139,7 @@
         <span class="count" x-text="`${cards.length} shown`"></span>
       </div>
 
-      <template x-for="r in cards" :key="r.passage_id">
+      <template x-for="r in cards" :key="r.unit_id">
         <div class="result-card">
           <div class="result-meta">
             <span class="badge badge-tradition" :style="tradBadgeStyle(r.tradition)">
@@ -150,7 +150,7 @@
               <span x-text="corpusEmoji(r.corpus, r.tradition)"></span>
               <span x-text="shortName(r.corpus)"></span>
             </span>
-            <span class="ref" x-text="r.unit_label || ''"></span>
+            <span class="ref" x-text="r.label || ''"></span>
           </div>
           <div class="similarity-bar">
             <div class="bar-track">

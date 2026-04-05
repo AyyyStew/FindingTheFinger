@@ -1,0 +1,36 @@
+services:
+
+  db:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ftf
+      POSTGRES_USER:     ftf
+      POSTGRES_PASSWORD: ftf
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ftf -d ftf"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://ftf:ftf@db:5432/ftf
+    volumes:
+      # Mount HF model cache so models aren't re-downloaded on every restart
+      - huggingface_cache:/root/.cache/huggingface
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  huggingface_cache:
