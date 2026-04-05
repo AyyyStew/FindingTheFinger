@@ -1,11 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Verse Similarity Search</title>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
     :root {
       --bg: #0f1117;
@@ -32,6 +40,7 @@
       text-align: center;
       margin-bottom: 2.5rem;
     }
+
     header h1 {
       font-size: 1.9rem;
       font-weight: 700;
@@ -41,13 +50,17 @@
       -webkit-text-fill-color: transparent;
       background-clip: text;
     }
+
     header p {
       color: var(--muted);
       margin-top: 0.4rem;
       font-size: 0.9rem;
     }
 
-    .container { max-width: 860px; margin: 0 auto; }
+    .container {
+      max-width: 860px;
+      margin: 0 auto;
+    }
 
     /* Tabs */
     .tabs {
@@ -59,6 +72,7 @@
       padding: 0.35rem;
       margin-bottom: 1.75rem;
     }
+
     .tab-btn {
       flex: 1;
       padding: 0.6rem 1rem;
@@ -71,15 +85,15 @@
       cursor: pointer;
       transition: all 0.15s;
     }
+
     .tab-btn.active {
       background: var(--surface2);
       color: var(--text);
     }
-    .tab-btn:hover:not(.active) { color: var(--text); }
 
-    /* Panels */
-    .panel { display: none; }
-    .panel.active { display: block; }
+    .tab-btn:hover:not(.active) {
+      color: var(--text);
+    }
 
     /* Search form */
     .search-card {
@@ -90,8 +104,14 @@
       margin-bottom: 1.5rem;
     }
 
-    .field { margin-bottom: 1.1rem; }
-    .field:last-child { margin-bottom: 0; }
+    .field {
+      margin-bottom: 1.1rem;
+    }
+
+    .field:last-child {
+      margin-bottom: 0;
+    }
+
     label {
       display: block;
       font-size: 0.8rem;
@@ -101,7 +121,9 @@
       color: var(--muted);
       margin-bottom: 0.4rem;
     }
-    input[type="text"], select {
+
+    input[type="text"],
+    select {
       width: 100%;
       padding: 0.6rem 0.85rem;
       background: var(--surface2);
@@ -112,11 +134,24 @@
       outline: none;
       transition: border-color 0.15s;
     }
-    input[type="text"]:focus, select:focus { border-color: var(--accent); }
-    select option { background: var(--surface2); }
 
-    .row { display: flex; gap: 1rem; }
-    .row .field { flex: 1; }
+    input[type="text"]:focus,
+    select:focus {
+      border-color: var(--accent);
+    }
+
+    select option {
+      background: var(--surface2);
+    }
+
+    .row {
+      display: flex;
+      gap: 1rem;
+    }
+
+    .row .field {
+      flex: 1;
+    }
 
     /* Slider */
     .slider-row {
@@ -124,12 +159,14 @@
       align-items: center;
       gap: 0.75rem;
     }
+
     input[type="range"] {
       flex: 1;
       accent-color: var(--accent);
       height: 4px;
       cursor: pointer;
     }
+
     .slider-val {
       min-width: 2.5rem;
       text-align: center;
@@ -138,7 +175,7 @@
       color: var(--accent);
     }
 
-    /* Tradition filters */
+    /* Filters */
     .filters-section {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -146,6 +183,7 @@
       padding: 1.25rem 1.5rem;
       margin-bottom: 1.5rem;
     }
+
     .filters-section h3 {
       font-size: 0.8rem;
       font-weight: 600;
@@ -154,11 +192,13 @@
       color: var(--muted);
       margin-bottom: 0.75rem;
     }
+
     .filter-chips {
       display: flex;
       flex-wrap: wrap;
       gap: 0.5rem;
     }
+
     .chip {
       display: flex;
       align-items: center;
@@ -171,11 +211,59 @@
       cursor: pointer;
       user-select: none;
       transition: all 0.15s;
+      color: var(--muted);
     }
-    .chip input[type="checkbox"] { accent-color: var(--accent); cursor: pointer; }
+
+    .chip input[type="checkbox"] {
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
     .chip.checked {
       border-color: var(--accent);
       color: var(--accent);
+    }
+
+    .chip.dim {
+      opacity: 0.4;
+    }
+
+    /* Autocomplete */
+    .autocomplete-wrap {
+      position: relative;
+    }
+
+    .autocomplete-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      background: var(--surface2);
+      border: 1px solid var(--accent);
+      border-radius: 7px;
+      z-index: 100;
+      max-height: 220px;
+      overflow-y: auto;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    .ac-item {
+      padding: 0.55rem 0.85rem;
+      font-size: 0.9rem;
+      cursor: pointer;
+      color: var(--text);
+    }
+
+    .ac-item:hover,
+    .ac-item.active {
+      background: rgba(108, 140, 255, 0.15);
+      color: var(--accent);
+    }
+
+    .ac-empty {
+      padding: 0.55rem 0.85rem;
+      font-size: 0.85rem;
+      color: var(--muted);
     }
 
     /* Button */
@@ -192,8 +280,15 @@
       margin-top: 1.25rem;
       transition: opacity 0.15s;
     }
-    .search-btn:hover { opacity: 0.88; }
-    .search-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .search-btn:hover {
+      opacity: 0.88;
+    }
+
+    .search-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
 
     /* Results */
     .results-header {
@@ -202,12 +297,16 @@
       align-items: center;
       margin-bottom: 0.85rem;
     }
+
     .results-header h2 {
       font-size: 1rem;
       font-weight: 600;
       color: var(--muted);
     }
-    .results-header .count { color: var(--accent); }
+
+    .results-header .count {
+      color: var(--accent);
+    }
 
     .result-card {
       background: var(--surface);
@@ -217,7 +316,10 @@
       margin-bottom: 0.75rem;
       transition: background 0.1s;
     }
-    .result-card:hover { background: var(--card-hover); }
+
+    .result-card:hover {
+      background: var(--card-hover);
+    }
 
     .result-meta {
       display: flex;
@@ -226,6 +328,7 @@
       flex-wrap: wrap;
       margin-bottom: 0.6rem;
     }
+
     .badge {
       font-size: 0.72rem;
       font-weight: 600;
@@ -233,27 +336,32 @@
       border-radius: 99px;
       letter-spacing: 0.03em;
     }
+
     .badge-tradition {
-      background: rgba(108,140,255,0.15);
+      background: rgba(108, 140, 255, 0.15);
       color: var(--accent);
-      border: 1px solid rgba(108,140,255,0.3);
+      border: 1px solid rgba(108, 140, 255, 0.3);
     }
+
     .badge-corpus {
-      background: rgba(167,139,250,0.12);
+      background: rgba(167, 139, 250, 0.12);
       color: var(--accent2);
-      border: 1px solid rgba(167,139,250,0.25);
+      border: 1px solid rgba(167, 139, 250, 0.25);
     }
+
     .ref {
       font-size: 0.82rem;
       color: var(--muted);
       margin-left: auto;
     }
+
     .similarity-bar {
       display: flex;
       align-items: center;
       gap: 0.5rem;
       margin-bottom: 0.55rem;
     }
+
     .bar-track {
       flex: 1;
       height: 3px;
@@ -261,11 +369,13 @@
       border-radius: 99px;
       overflow: hidden;
     }
+
     .bar-fill {
       height: 100%;
       border-radius: 99px;
       background: linear-gradient(90deg, var(--accent), var(--accent2));
     }
+
     .sim-score {
       font-size: 0.78rem;
       font-weight: 700;
@@ -273,41 +383,41 @@
       min-width: 3rem;
       text-align: right;
     }
+
     .result-text {
       font-size: 0.92rem;
       line-height: 1.6;
       color: #c8cbdf;
     }
 
-    /* Autocomplete */
-    .autocomplete-wrap { position: relative; }
-    .autocomplete-dropdown {
-      position: absolute;
-      top: calc(100% + 4px);
-      left: 0; right: 0;
-      background: var(--surface2);
-      border: 1px solid var(--accent);
-      border-radius: 7px;
-      z-index: 100;
-      max-height: 220px;
-      overflow-y: auto;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-    }
-    .autocomplete-dropdown .ac-item {
-      padding: 0.55rem 0.85rem;
-      font-size: 0.9rem;
-      cursor: pointer;
-      color: var(--text);
-    }
-    .autocomplete-dropdown .ac-item:hover,
-    .autocomplete-dropdown .ac-item.active {
-      background: rgba(108,140,255,0.15);
-      color: var(--accent);
-    }
-    .autocomplete-dropdown .ac-empty {
-      padding: 0.55rem 0.85rem;
-      font-size: 0.85rem;
+    /* Status */
+    .status {
+      text-align: center;
+      padding: 2.5rem 1rem;
       color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .status.error {
+      color: #f87171;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 1.2rem;
+      height: 1.2rem;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 0.4rem;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
     }
 
     /* Load more */
@@ -324,442 +434,416 @@
       cursor: pointer;
       transition: all 0.15s;
     }
-    .load-more-btn:hover { border-color: var(--accent); color: var(--accent); }
 
-    /* Status messages */
-    .status {
-      text-align: center;
-      padding: 2.5rem 1rem;
-      color: var(--muted);
-      font-size: 0.9rem;
+    .load-more-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
     }
-    .status.error { color: #f87171; }
 
-    .spinner {
-      display: inline-block;
-      width: 1.2rem;
-      height: 1.2rem;
-      border: 2px solid var(--border);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-      vertical-align: middle;
-      margin-right: 0.4rem;
+    .load-more-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Source verse card */
+    .source-card {
+      background: var(--surface);
+      border: 1px solid var(--accent);
+      border-radius: 10px;
+      padding: 1.1rem 1.25rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 0 0 1px rgba(108, 140, 255, 0.1);
+    }
+
+    .source-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.6rem;
+    }
+
+    .source-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--accent);
+      margin-right: 0.25rem;
+    }
+
+    [x-cloak] {
+      display: none !important;
+    }
   </style>
 </head>
+
 <body>
-<div class="container">
-  <header>
-    <h1>Verse Similarity Search</h1>
-    <p>Find semantically similar passages across traditions using AI embeddings</p>
-  </header>
+  <div x-data="app()" x-init="init()" x-cloak class="container">
 
-  <!-- Tabs -->
-  <div class="tabs">
-    <button class="tab-btn active" data-tab="verse">Verse Lookup</button>
-    <button class="tab-btn" data-tab="text">Free Text Search</button>
-  </div>
+    <header>
+      <h1>Verse Similarity Search</h1>
+      <p>Find semantically similar passages across traditions using AI embeddings</p>
+    </header>
 
-  <!-- Verse lookup panel -->
-  <div class="panel active" id="panel-verse">
-    <div class="search-card">
-      <div class="row">
-        <div class="field">
-          <label for="corpus-select">Corpus</label>
-          <select id="corpus-select"><option value="">Loading…</option></select>
-        </div>
-        <div class="field">
-          <label for="ref-input">Reference</label>
-          <div class="autocomplete-wrap">
-            <input type="text" id="ref-input" placeholder="e.g. John 3:16" autocomplete="off" />
-            <div class="autocomplete-dropdown" id="ref-dropdown" style="display:none"></div>
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab-btn" :class="{active: activeTab==='verse'}" @click="activeTab='verse'">Verse Lookup</button>
+      <button class="tab-btn" :class="{active: activeTab==='text'}" @click="activeTab='text'">Free Text Search</button>
+    </div>
+
+    <!-- Verse lookup -->
+    <div x-show="activeTab==='verse'">
+      <div class="search-card">
+        <div class="row">
+          <div class="field">
+            <label>Corpus</label>
+            <select x-model="selectedCorpus" @change="acOpen=false; acValid=false; refInput=''; sourceVerse=null">
+              <template x-for="c in corpora" :key="c.corpus">
+                <option :value="c.corpus" x-text="`${c.corpus} (${c.tradition})`"></option>
+              </template>
+            </select>
+          </div>
+          <div class="field">
+            <label>Reference</label>
+            <div class="autocomplete-wrap" @click.outside="acOpen=false">
+              <input type="text" x-model="refInput" autocomplete="off" placeholder="e.g. John 3:16" @focus="acFocus()"
+                @input="acInput()" @keydown="acKeydown($event)" />
+              <div x-show="acOpen" class="autocomplete-dropdown">
+                <template x-if="acItems.length === 0">
+                  <div class="ac-empty">No matches</div>
+                </template>
+                <template x-for="(item, i) in acItems" :key="i">
+                  <div class="ac-item" :class="{active: acActive===i}" @mousedown.prevent="acSelect(item)"
+                    x-text="item"></div>
+                </template>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-      <div class="field" style="margin-top:1.1rem">
-        <label>Results <span id="limit-v-val" class="slider-val">10</span></label>
-        <div class="slider-row">
-          <span style="font-size:.8rem;color:var(--muted)">5</span>
-          <input type="range" id="limit-v" min="5" max="50" value="10" step="1" />
-          <span style="font-size:.8rem;color:var(--muted)">50</span>
+        <!-- Source verse preview -->
+        <div x-show="sourceVerse && activeTab==='verse'" class="source-card" style="margin-bottom:1.5rem">
+          <div class="source-header">
+            <span class="source-label">Verse</span>
+            <span class="badge badge-tradition" x-text="sourceVerse?.tradition"></span>
+            <span class="badge badge-corpus" x-text="sourceVerse?.corpus"></span>
+            <span class="ref" x-text="sourceVerse?.unit_label"></span>
+          </div>
+          <div class="result-text" x-text="sourceVerse?.text"></div>
         </div>
+        <div class="field" style="margin-top:1.1rem">
+          <label>Results <span x-text="limitV" class="slider-val"></span></label>
+          <div class="slider-row">
+            <span style="font-size:.8rem;color:var(--muted)">5</span>
+            <input type="range" x-model.number="limitV" min="5" max="50" step="1" />
+            <span style="font-size:.8rem;color:var(--muted)">50</span>
+          </div>
+        </div>
+        <button class="search-btn" :disabled="loading || !acValid" @click="doVerseSearch()">Search</button>
       </div>
-      <button class="search-btn" id="btn-verse">Search</button>
     </div>
-  </div>
 
-  <!-- Free text panel -->
-  <div class="panel" id="panel-text">
-    <div class="search-card">
-      <div class="field">
-        <label for="query-input">Query</label>
-        <input type="text" id="query-input" placeholder="e.g. Love your enemies and pray for them" />
-      </div>
-      <div class="field">
-        <label>Results <span id="limit-t-val" class="slider-val">10</span></label>
-        <div class="slider-row">
-          <span style="font-size:.8rem;color:var(--muted)">5</span>
-          <input type="range" id="limit-t" min="5" max="50" value="10" step="1" />
-          <span style="font-size:.8rem;color:var(--muted)">50</span>
+    <!-- Free text search -->
+    <div x-show="activeTab==='text'">
+      <div class="search-card">
+        <div class="field">
+          <label>Query</label>
+          <input type="text" x-model="queryInput" placeholder="e.g. Love your enemies and pray for them"
+            @keydown.enter="doTextSearch()" />
         </div>
+        <div class="field">
+          <label>Results <span x-text="limitT" class="slider-val"></span></label>
+          <div class="slider-row">
+            <span style="font-size:.8rem;color:var(--muted)">5</span>
+            <input type="range" x-model.number="limitT" min="5" max="50" step="1" />
+            <span style="font-size:.8rem;color:var(--muted)">50</span>
+          </div>
+        </div>
+        <button class="search-btn" :disabled="loading" @click="doTextSearch()">Search</button>
       </div>
-      <button class="search-btn" id="btn-text">Search</button>
     </div>
-  </div>
 
-  <!-- Filters -->
-  <div class="filters-section" id="filters-section" style="display:none">
-    <h3>Tradition</h3>
-    <div class="filter-chips" id="tradition-chips"></div>
-    <h3 style="margin-top:1rem">Corpus</h3>
-    <div class="filter-chips" id="corpus-chips"></div>
-  </div>
 
-  <!-- Results -->
-  <div id="results-area"></div>
-</div>
 
-<script>
-  // State
-  let corpora = [];
-  let traditions = new Set();
-  let excludedTraditions = new Set();
-  let excludedCorpora = new Set();
+    <!-- Filters -->
+    <div class="filters-section" x-show="corpora.length > 0">
+      <h3>Tradition</h3>
+      <div class="filter-chips">
+        <template x-for="t in traditions" :key="t">
+          <label class="chip" :class="{checked: tradEnabled[t]}" @click.prevent="toggleTradition(t)">
+            <input type="checkbox" :checked="tradEnabled[t]" @click.stop />
+            <span x-text="t"></span>
+          </label>
+        </template>
+      </div>
 
-  // Pagination state
-  const PAGE_SIZE = 50;       // results fetched per API call
-  let pool = [];              // client-side buffer of fetched-but-not-shown results
-  let shownCount = 0;         // total cards currently in the DOM
-  let apiOffset = 0;          // total fetched from API so far
-  let apiHasMore = true;      // false once an API call returns < PAGE_SIZE
-  let lastParams = null;      // {type, ...} — repeated for each "load more" fetch
+      <h3 style="margin-top:1rem">Corpus</h3>
+      <div class="filter-chips">
+        <template x-for="c in corpora" :key="c.corpus">
+          <label class="chip" :class="{checked: corpusEnabled[c.corpus], dim: !tradEnabled[c.tradition]}"
+            :title="c.corpus" @click.prevent="toggleCorpus(c.corpus)">
+            <input type="checkbox" :checked="corpusEnabled[c.corpus]" @click.stop />
+            <span x-text="shortName(c.corpus)"></span>
+          </label>
+        </template>
+      </div>
+    </div>
 
-  // ---- Tabs ----
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-      btn.classList.add('active');
-      document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
-    });
-  });
+    <!-- Loading -->
+    <div x-show="loading" class="status">
+      <span class="spinner"></span>Searching…
+    </div>
 
-  // ---- Sliders ----
-  function bindSlider(sliderId, valId) {
-    const slider = document.getElementById(sliderId);
-    const val = document.getElementById(valId);
-    slider.addEventListener('input', () => { val.textContent = slider.value; });
-  }
-  bindSlider('limit-v', 'limit-v-val');
-  bindSlider('limit-t', 'limit-t-val');
+    <!-- Error -->
+    <div x-show="!loading && errorMsg" class="status error" x-text="errorMsg"></div>
 
-  // ---- Load corpora ----
-  async function loadCorpora() {
-    try {
-      const data = await fetch('/corpora').then(r => r.json());
-      corpora = data;
+    <!-- No results -->
+    <div x-show="!loading && !errorMsg && searched && cards.length === 0" class="status">
+      No results found.
+    </div>
 
-      const sel = document.getElementById('corpus-select');
-      sel.innerHTML = '';
-      data.forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c.corpus;
-        opt.textContent = `${c.corpus} (${c.tradition})`;
-        sel.appendChild(opt);
-      });
-
-      // Build filter chips
-      data.forEach(c => traditions.add(c.tradition));
-      buildChips('tradition-chips', [...traditions].sort(), excludedTraditions);
-      buildChips('corpus-chips', data.map(c => c.corpus), excludedCorpora, shortCorpusName);
-      document.getElementById('filters-section').style.display = '';
-    } catch (e) {
-      document.getElementById('corpus-select').innerHTML = '<option>Error loading</option>';
-    }
-  }
-
-  function shortCorpusName(name) {
-    // Strip trailing parenthetical: "Dhammapada (Müller)" → "Dhammapada"
-    return name.replace(/\s*\([^)]+\)\s*$/, '').replace(/^Bible — /, '');
-  }
-
-  function buildChips(containerId, items, excludedSet, labelFn = s => s) {
-    const container = document.getElementById(containerId);
-    container.innerHTML = '';
-    items.forEach(val => {
-      const chip = document.createElement('label');
-      chip.className = 'chip checked';
-      chip.title = val; // full name on hover
-      chip.innerHTML = `<input type="checkbox" checked value="${escHtml(val)}" /> ${escHtml(labelFn(val))}`;
-      const cb = chip.querySelector('input');
-      cb.addEventListener('change', () => {
-        if (cb.checked) { excludedSet.delete(val); chip.classList.add('checked'); }
-        else             { excludedSet.add(val);    chip.classList.remove('checked'); }
-      });
-      container.appendChild(chip);
-    });
-  }
-
-  // ---- Search ----
-  function displayLimit() {
-    const activeTab = document.querySelector('.tab-btn.active').dataset.tab;
-    return parseInt(document.getElementById(activeTab === 'verse' ? 'limit-v' : 'limit-t').value);
-  }
-
-  function filterBatch(results) {
-    return results.filter(r =>
-      !excludedTraditions.has(r.tradition) && !excludedCorpora.has(r.corpus)
-    );
-  }
-
-  async function fetchBatch(offset) {
-    const p = lastParams;
-    let url;
-    if (p.type === 'verse') {
-      url = '/verse?' + new URLSearchParams({ corpus: p.corpus, ref: p.ref, limit: PAGE_SIZE, offset });
-    } else {
-      url = '/search?' + new URLSearchParams({ q: p.q, limit: PAGE_SIZE, offset });
-    }
-    const resp = await fetch(url);
-    if (!resp.ok) throw new Error((await resp.json()).detail || resp.statusText);
-    return resp.json();
-  }
-
-  async function doVerseSearch() {
-    const corpus = document.getElementById('corpus-select').value;
-    const ref = document.getElementById('ref-input').value.trim();
-    if (!ref) { alert('Please enter a reference.'); return; }
-    lastParams = { type: 'verse', corpus, ref };
-    await startSearch();
-  }
-
-  async function doTextSearch() {
-    const q = document.getElementById('query-input').value.trim();
-    if (!q) { alert('Please enter a query.'); return; }
-    lastParams = { type: 'text', q };
-    await startSearch();
-  }
-
-  async function startSearch() {
-    pool = [];
-    shownCount = 0;
-    apiOffset = 0;
-    apiHasMore = true;
-    setLoading(true);
-    try {
-      await loadMore(true);
-    } catch (e) {
-      renderError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function loadMore(fresh) {
-    // If the buffer is empty and there's more on the server, fetch a batch
-    if (pool.length === 0 && apiHasMore) {
-      const batch = await fetchBatch(apiOffset);
-      apiOffset += batch.length;
-      apiHasMore = batch.length === PAGE_SIZE;
-      pool = filterBatch(batch);
-    }
-
-    if (pool.length === 0 && !apiHasMore) {
-      if (fresh) renderNoResults();
-      return;
-    }
-
-    const take = Math.min(displayLimit(), pool.length);
-    const cards = pool.splice(0, take);
-    shownCount += cards.length;
-    renderCards(cards, fresh);
-    updateLoadMoreBtn();
-  }
-
-  document.getElementById('btn-verse').addEventListener('click', doVerseSearch);
-  document.getElementById('btn-text').addEventListener('click', doTextSearch);
-
-  // Enter key support
-  document.getElementById('ref-input').addEventListener('keydown', e => { if (e.key === 'Enter') doVerseSearch(); });
-  document.getElementById('query-input').addEventListener('keydown', e => { if (e.key === 'Enter') doTextSearch(); });
-
-  // ---- Render ----
-  function setLoading(on) {
-    document.getElementById('btn-verse').disabled = on;
-    document.getElementById('btn-text').disabled = on;
-    if (on) {
-      document.getElementById('results-area').innerHTML =
-        '<div class="status"><span class="spinner"></span>Searching…</div>';
-    }
-  }
-
-  function renderError(msg) {
-    document.getElementById('results-area').innerHTML =
-      `<div class="status error">Error: ${escHtml(msg)}</div>`;
-  }
-
-  function renderNoResults() {
-    document.getElementById('results-area').innerHTML =
-      '<div class="status">No results found.</div>';
-  }
-
-  function cardHtml(r) {
-    const pct = (r.similarity * 100).toFixed(1);
-    return `
-      <div class="result-card">
-        <div class="result-meta">
-          <span class="badge badge-tradition">${escHtml(r.tradition)}</span>
-          <span class="badge badge-corpus">${escHtml(r.corpus)}</span>
-          <span class="ref">${escHtml(r.unit_label || '')}</span>
-        </div>
-        <div class="similarity-bar">
-          <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
-          <span class="sim-score">${pct}%</span>
-        </div>
-        <div class="result-text">${escHtml(r.text)}</div>
-      </div>`;
-  }
-
-  function renderCards(cards, fresh) {
-    const area = document.getElementById('results-area');
-    if (fresh) {
-      let html = `<div class="results-header">
+    <!-- Results -->
+    <div x-show="cards.length > 0">
+      <div class="results-header">
         <h2>Results</h2>
-        <span class="count" id="results-count">${shownCount} shown</span>
-      </div><div id="cards-container">`;
-      cards.forEach(r => { html += cardHtml(r); });
-      html += '</div>';
-      area.innerHTML = html;
-    } else {
-      document.getElementById('cards-container')
-        .insertAdjacentHTML('beforeend', cards.map(cardHtml).join(''));
-      document.getElementById('results-count').textContent = `${shownCount} shown`;
+        <span class="count" x-text="`${cards.length} shown`"></span>
+      </div>
+
+      <template x-for="r in cards" :key="r.passage_id">
+        <div class="result-card">
+          <div class="result-meta">
+            <span class="badge badge-tradition" x-text="r.tradition"></span>
+            <span class="badge badge-corpus" x-text="r.corpus"></span>
+            <span class="ref" x-text="r.unit_label || ''"></span>
+          </div>
+          <div class="similarity-bar">
+            <div class="bar-track">
+              <div class="bar-fill" :style="`width:${(r.similarity*100).toFixed(1)}%`"></div>
+            </div>
+            <span class="sim-score" x-text="`${(r.similarity*100).toFixed(1)}%`"></span>
+          </div>
+          <div class="result-text" x-text="r.text"></div>
+        </div>
+      </template>
+
+      <button class="load-more-btn" x-show="hasMore" :disabled="loading" @click="loadMore()">Load more</button>
+    </div>
+
+  </div><!-- /x-data -->
+
+  <script>
+    function app() {
+      return {
+        // Corpus data & filter state
+        corpora: [],
+        tradEnabled: {},
+        corpusEnabled: {},
+
+        // Search inputs
+        activeTab: 'verse',
+        selectedCorpus: '',
+        refInput: '',
+        queryInput: '',
+        limitV: 10,
+        limitT: 10,
+
+        // Pagination
+        PAGE_SIZE: 50,
+        cards: [],
+        apiOffset: 0,
+        apiHasMore: true,
+        lastParams: null,
+
+        // UI state
+        loading: false,
+        errorMsg: '',
+        searched: false,
+        sourceVerse: null,   // {text, unit_label, corpus, tradition} for verse searches
+
+        // Autocomplete
+        acItems: [],
+        acActive: -1,
+        acOpen: false,
+        acValid: false,   // true only when refInput came from the dropdown
+        _acTimer: null,
+
+        // ---- Init ----
+
+        async init() {
+          try {
+            const data = await fetch('/corpora').then(r => r.json());
+            this.corpora = data;
+            if (data.length) this.selectedCorpus = data[0].corpus;
+
+            const te = {}, ce = {};
+            data.forEach(c => { te[c.tradition] = true; ce[c.corpus] = true; });
+            this.tradEnabled = te;
+            this.corpusEnabled = ce;
+          } catch (e) {
+            console.error('Failed to load corpora', e);
+          }
+        },
+
+        // ---- Derived ----
+
+        get traditions() {
+          return [...new Set(this.corpora.map(c => c.tradition))].sort();
+        },
+
+        get hasMore() {
+          return this.apiHasMore;
+        },
+
+        shortName(name) {
+          return name.replace(/\s*\([^)]+\)\s*$/, '').replace(/^Bible\s*[—-]\s*/, '');
+        },
+
+        // ---- Filters ----
+
+        toggleTradition(t) {
+          const next = !this.tradEnabled[t];
+          this.tradEnabled = { ...this.tradEnabled, [t]: next };
+          const updated = { ...this.corpusEnabled };
+          this.corpora.filter(c => c.tradition === t)
+            .forEach(c => { updated[c.corpus] = next; });
+          this.corpusEnabled = updated;
+          if (this.searched && !this.loading) this.startSearch();
+        },
+
+        toggleCorpus(corpus) {
+          this.corpusEnabled = { ...this.corpusEnabled, [corpus]: !this.corpusEnabled[corpus] };
+          if (this.searched && !this.loading) this.startSearch();
+        },
+
+        // ---- Search ----
+
+        async doVerseSearch() {
+          const ref = this.refInput.trim();
+          if (!ref || !this.acValid) return;
+          this.acOpen = false;
+          this.lastParams = { type: 'verse', corpus: this.selectedCorpus, ref };
+          await this.startSearch();
+        },
+
+        async doTextSearch() {
+          const q = this.queryInput.trim();
+          if (!q) return;
+          this.sourceVerse = null;
+          this.lastParams = { type: 'text', q };
+          await this.startSearch();
+        },
+
+        async startSearch() {
+          this.cards = [];
+          this.apiOffset = 0;
+          this.apiHasMore = true;
+          this.errorMsg = '';
+          this.searched = true;
+          this.loading = true;
+          try {
+            await this._loadMore();
+          } catch (e) {
+            this.errorMsg = e.message;
+          } finally {
+            this.loading = false;
+          }
+        },
+
+        async loadMore() {
+          this.loading = true;
+          try {
+            await this._loadMore();
+          } catch (e) {
+            this.errorMsg = e.message;
+          } finally {
+            this.loading = false;
+          }
+        },
+
+        async _loadMore() {
+          if (!this.apiHasMore) return;
+          const batch = await this._fetchBatch(this.apiOffset);
+          this.apiOffset += batch.length;
+          this.apiHasMore = batch.length === this.PAGE_SIZE;
+          this.cards = [...this.cards, ...batch];
+        },
+
+        async _fetchBatch(offset) {
+          const p = this.lastParams;
+          const enabledCorpora = Object.entries(this.corpusEnabled)
+            .filter(([, v]) => v).map(([k]) => k);
+
+          let params;
+          if (p.type === 'verse') {
+            params = new URLSearchParams({ corpus: p.corpus, ref: p.ref, limit: this.PAGE_SIZE, offset });
+          } else {
+            params = new URLSearchParams({ q: p.q, limit: this.PAGE_SIZE, offset });
+          }
+          enabledCorpora.forEach(c => params.append('corpora', c));
+
+          const resp = await fetch((p.type === 'verse' ? '/verse?' : '/search?') + params);
+          if (!resp.ok) throw new Error((await resp.json()).detail || resp.statusText);
+          return resp.json();
+        },
+
+        // ---- Autocomplete ----
+
+        async _acFetch(q, limit) {
+          if (!this.selectedCorpus) return;
+          try {
+            const params = new URLSearchParams({ corpus: this.selectedCorpus, q, limit });
+            const items = await fetch('/refs?' + params).then(r => r.json());
+            this.acItems = items;
+            this.acActive = -1;
+            this.acOpen = items.length > 0;
+          } catch { this.acOpen = false; }
+        },
+
+        acFocus() {
+          if (!this.refInput.trim()) this._acFetch('', 3);
+        },
+
+        acInput() {
+          this.acValid = false;
+          clearTimeout(this._acTimer);
+          const val = this.refInput.trim();
+          if (!val) { this._acFetch('', 3); return; }
+          this._acTimer = setTimeout(() => this._acFetch(val, 20), 180);
+        },
+
+        acKeydown(e) {
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (this.acOpen) this.acActive = Math.min(this.acActive + 1, this.acItems.length - 1);
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (this.acOpen) this.acActive = Math.max(this.acActive - 1, -1);
+          } else if (e.key === 'Enter') {
+            if (this.acOpen && this.acActive >= 0) {
+              e.preventDefault();
+              this.acSelect(this.acItems[this.acActive]);
+            } else {
+              this.acOpen = false;
+              this.doVerseSearch();
+            }
+          } else if (e.key === 'Escape') {
+            this.acOpen = false;
+          }
+        },
+
+        acSelect(item) {
+          this.refInput = item;
+          this.acValid = true;
+          this.acOpen = false;
+          this.sourceVerse = null;
+          fetch('/passage?' + new URLSearchParams({ corpus: this.selectedCorpus, ref: item }))
+            .then(r => r.ok ? r.json() : null)
+            .then(d => { if (d) this.sourceVerse = d; })
+            .catch(() => { });
+        },
+      };
     }
-  }
-
-  function updateLoadMoreBtn() {
-    const area = document.getElementById('results-area');
-    const existing = document.getElementById('load-more-btn');
-    if (existing) existing.remove();
-
-    const hasMore = pool.length > 0 || apiHasMore;
-    if (!hasMore) return;
-
-    const btn = document.createElement('button');
-    btn.id = 'load-more-btn';
-    btn.className = 'load-more-btn';
-    btn.textContent = 'Load more';
-    btn.addEventListener('click', async () => {
-      btn.disabled = true;
-      btn.textContent = 'Loading…';
-      try {
-        await loadMore(false);
-      } catch (e) {
-        renderError(e.message);
-      }
-    });
-    area.appendChild(btn);
-  }
-
-  function escHtml(s) {
-    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
-
-  // ---- Autocomplete for ref input ----
-  (function () {
-    const input = document.getElementById('ref-input');
-    const dropdown = document.getElementById('ref-dropdown');
-    let activeIdx = -1;
-    let debounceTimer = null;
-    let currentItems = [];
-
-    function getCorpus() {
-      return document.getElementById('corpus-select').value;
-    }
-
-    function closeDropdown() {
-      dropdown.style.display = 'none';
-      dropdown.innerHTML = '';
-      activeIdx = -1;
-      currentItems = [];
-    }
-
-    function setActive(idx) {
-      const items = dropdown.querySelectorAll('.ac-item');
-      items.forEach(el => el.classList.remove('active'));
-      activeIdx = Math.max(-1, Math.min(idx, items.length - 1));
-      if (activeIdx >= 0) items[activeIdx].classList.add('active');
-    }
-
-    function renderDropdown(items) {
-      currentItems = items;
-      activeIdx = -1;
-      if (!items.length) {
-        dropdown.innerHTML = '<div class="ac-empty">No matches</div>';
-        dropdown.style.display = '';
-        return;
-      }
-      dropdown.innerHTML = items.map((s, i) =>
-        `<div class="ac-item" data-idx="${i}">${escHtml(s)}</div>`
-      ).join('');
-      dropdown.style.display = '';
-      dropdown.querySelectorAll('.ac-item').forEach(el => {
-        el.addEventListener('mousedown', e => {
-          e.preventDefault();
-          input.value = currentItems[parseInt(el.dataset.idx)];
-          closeDropdown();
-        });
-      });
-    }
-
-    async function fetchSuggestions(q, limit) {
-      const corpus = getCorpus();
-      if (!corpus) return;
-      try {
-        const params = new URLSearchParams({ corpus, q, limit });
-        const data = await fetch('/refs?' + params).then(r => r.json());
-        renderDropdown(data);
-      } catch { closeDropdown(); }
-    }
-
-    input.addEventListener('focus', () => {
-      if (!input.value.trim()) fetchSuggestions('', 3);
-    });
-
-    input.addEventListener('input', () => {
-      clearTimeout(debounceTimer);
-      const val = input.value.trim();
-      if (!val) {
-        fetchSuggestions('', 3);
-        return;
-      }
-      debounceTimer = setTimeout(() => fetchSuggestions(val, 20), 180);
-    });
-
-    // Reset dropdown when corpus changes
-    document.getElementById('corpus-select').addEventListener('change', closeDropdown);
-
-    input.addEventListener('keydown', e => {
-      if (dropdown.style.display === 'none') return;
-      if (e.key === 'ArrowDown') { e.preventDefault(); setActive(activeIdx + 1); }
-      else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(activeIdx - 1); }
-      else if (e.key === 'Enter' && activeIdx >= 0) {
-        e.preventDefault();
-        e.stopPropagation();
-        input.value = currentItems[activeIdx];
-        closeDropdown();
-      } else if (e.key === 'Escape') { closeDropdown(); }
-    });
-
-    document.addEventListener('click', e => {
-      if (!input.contains(e.target) && !dropdown.contains(e.target)) closeDropdown();
-    });
-  })();
-
-  // ---- Init ----
-  loadCorpora();
-</script>
+  </script>
 </body>
+
 </html>

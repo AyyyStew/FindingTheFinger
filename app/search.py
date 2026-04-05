@@ -55,6 +55,7 @@ JOIN corpus_tradition ct ON c.tradition_id = ct.id
 WHERE e.model_name = $model
 {allowlist_clause}
 {tradition_filter}
+{corpus_filter}
 ORDER BY similarity DESC
 LIMIT $limit
 OFFSET $offset
@@ -66,10 +67,12 @@ def _run_similarity(
     limit: int,
     offset: int = 0,
     exclude_tradition: Optional[str] = None,
+    only_corpora: Optional[list[str]] = None,
 ) -> list[dict]:
     conn = get_conn()
 
     tradition_filter = ""
+    corpus_filter = ""
     params: dict = _allowlist_param({
         "query_vec": vector,
         "model": MODEL_NAME,
@@ -81,9 +84,14 @@ def _run_similarity(
         tradition_filter = "AND ct.name != $exclude_tradition"
         params["exclude_tradition"] = exclude_tradition
 
+    if only_corpora:
+        corpus_filter = "AND c.name = ANY($only_corpora)"
+        params["only_corpora"] = only_corpora
+
     sql = _SIMILARITY_SQL.format(
         allowlist_clause=_allowlist_clause(),
         tradition_filter=tradition_filter,
+        corpus_filter=corpus_filter,
     )
     rows = conn.execute(sql, params).fetchall()
     cols = ["passage_id", "corpus", "tradition", "unit_label", "text", "similarity"]
@@ -95,8 +103,9 @@ def search_by_vector(
     limit: int = 10,
     offset: int = 0,
     exclude_tradition: Optional[str] = None,
+    only_corpora: Optional[list[str]] = None,
 ) -> list[dict]:
-    return _run_similarity(vector, limit, offset, exclude_tradition)
+    return _run_similarity(vector, limit, offset, exclude_tradition, only_corpora)
 
 
 def search_by_verse(
@@ -105,6 +114,7 @@ def search_by_verse(
     limit: int = 10,
     offset: int = 0,
     exclude_tradition: Optional[str] = None,
+    only_corpora: Optional[list[str]] = None,
 ) -> list[dict]:
     conn = get_conn()
     row = conn.execute(
@@ -124,7 +134,7 @@ def search_by_verse(
     if not row:
         return []
 
-    return _run_similarity(list(row[0]), limit, offset, exclude_tradition)
+    return _run_similarity(list(row[0]), limit, offset, exclude_tradition, only_corpora)
 
 
 def get_refs(corpus_name: str, q: str, limit: int = 20) -> list[str]:
