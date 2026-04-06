@@ -29,6 +29,7 @@ let _deck             = null;   // Deck.gl instance — MUST live outside Alpine
                                 // so the Proxy invariant fires on every re-render.
 let _zoom             = 0;
 let _initialZoom      = 0;
+let _hoverTimer       = null;
 
 // ---------------------------------------------------------------------------
 // Tradition colours
@@ -523,6 +524,8 @@ const layers = [];
     // -----------------------------------------------------------------------
     _onHover(info) {
       const tooltip = document.getElementById('map-tooltip');
+      clearTimeout(_hoverTimer);
+
       if (!info.object) { tooltip.style.display = 'none'; return; }
 
       const d    = info.object;
@@ -540,13 +543,15 @@ const layers = [];
       tooltip.style.top  = (info.y + 12) + 'px';
 
       if (d.h === 0) {
-        fetch(`/api/v1/unit/${d.id}`)
-          .then(r => r.ok ? r.json() : null)
-          .then(v => {
-            if (v && tooltip.style.display !== 'none')
-              document.getElementById('tt-text').textContent = v.text;
-          })
-          .catch(() => {});
+        _hoverTimer = setTimeout(() => {
+          fetch(`/api/v1/unit/${d.id}`)
+            .then(r => r.ok ? r.json() : null)
+            .then(v => {
+              if (v && tooltip.style.display !== 'none')
+                document.getElementById('tt-text').textContent = v.text;
+            })
+            .catch(() => {});
+        }, 200);
       }
     },
 
