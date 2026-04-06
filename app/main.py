@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from app.search import (
-    get_corpora, get_refs, get_passage, get_unit_by_id,
+    get_corpora, get_refs, get_passage, get_unit_by_id, get_unit_leaves,
     get_map_data, get_map_versions,
     search_by_vector, search_by_verse, search_by_unit_id,
     QUERY_PREFIX,
@@ -130,6 +130,16 @@ def unit(unit_id: int):
     return row
 
 
+@api.get("/unit/{unit_id}/leaves")
+def unit_leaves(unit_id: int):
+    row = get_unit_by_id(unit_id)
+    if not row:
+        raise HTTPException(404, f"Unit {unit_id} not found")
+    if row["height"] == 0:
+        return {"height": 0, "leaves": [{"label": row["label"], "text": row["text"], "parent_label": None, "parent_height": None}]}
+    return get_unit_leaves(unit_id)
+
+
 @api.get("/map/versions")
 def map_versions():
     return get_map_versions()
@@ -158,6 +168,7 @@ def similar(
     offset: int = Query(0, ge=0),
     exclude_tradition: Optional[str] = Query(None),
     corpora: list[str] = Query(default=[]),
+    target_height: Optional[int] = Query(None),
 ):
     results = search_by_unit_id(
         unit_id=unit_id,
@@ -165,6 +176,7 @@ def similar(
         offset=offset,
         exclude_tradition=exclude_tradition,
         only_corpora=corpora or None,
+        target_height=target_height,
     )
     if not results:
         raise HTTPException(404, f"No embedding found for unit {unit_id}")

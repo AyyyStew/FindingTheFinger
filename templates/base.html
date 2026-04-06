@@ -314,10 +314,14 @@
     }
 
     .ac-item {
-      padding: 0.55rem 0.85rem;
-      font-size: 0.9rem;
+      padding: 0.45rem 0.85rem;
+      font-size: 0.85rem;
       cursor: pointer;
       color: var(--text);
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 0.5rem;
     }
 
     .ac-item:hover,
@@ -326,10 +330,58 @@
       color: var(--accent);
     }
 
+    .ac-level {
+      font-size: 0.68rem;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .ac-item:hover .ac-level,
+    .ac-item.active .ac-level {
+      color: var(--accent);
+      opacity: 0.7;
+    }
+
     .ac-empty {
       padding: 0.55rem 0.85rem;
       font-size: 0.85rem;
       color: var(--muted);
+    }
+
+    /* Height pills (passage search) */
+    .height-pills {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    .height-pill-label {
+      font-size: 0.72rem;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .height-pill {
+      font-size: 0.75rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+
+    .height-pill:hover {
+      border-color: var(--accent);
+      color: var(--text);
+    }
+
+    .height-pill.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
     }
 
     /* Button */
@@ -395,6 +447,11 @@
       margin-bottom: 0.6rem;
     }
 
+    .result-meta .result-ref {
+      flex: 1;
+      min-width: 0;
+    }
+
     .badge {
       font-size: 0.72rem;
       font-weight: 600;
@@ -414,7 +471,6 @@
     .ref {
       font-size: 0.82rem;
       color: var(--muted);
-      margin-left: auto;
     }
 
     .similarity-bar {
@@ -446,10 +502,150 @@
       text-align: right;
     }
 
+    .result-ref {
+      font-size: 0.95rem;
+      font-weight: 700;
+    }
+
     .result-text {
       font-size: 0.92rem;
       line-height: 1.6;
       color: #c8cbdf;
+    }
+
+    .result-text.collapsed {
+      display: -webkit-box;
+      -webkit-line-clamp: 8;
+      line-clamp: 8;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .expand-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 0.78rem;
+      cursor: pointer;
+      padding: 0.3rem 0;
+      margin-top: 0.2rem;
+      transition: color 0.15s;
+    }
+
+    .expand-btn:hover {
+      color: var(--accent);
+    }
+
+    .leaf-scroll-box {
+      max-height: 380px;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 0.65rem 0.85rem;
+      margin-top: 0.5rem;
+      background: var(--surface2);
+    }
+
+    .leaf-row {
+      display: flex;
+      gap: 0.6rem;
+      margin-bottom: 0.4rem;
+      align-items: baseline;
+    }
+
+    .leaf-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      flex-shrink: 0;
+      min-width: 4rem;
+    }
+
+    .leaf-text {
+      font-size: 0.92rem;
+      line-height: 1.6;
+      color: #c8cbdf;
+    }
+
+    .search-origin-card {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+      padding: 0.6rem 0.85rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 0.5rem;
+    }
+
+    .search-origin-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+    }
+
+    .search-origin-ref {
+      font-size: 0.88rem;
+      font-weight: 700;
+    }
+
+    .preview-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      margin-bottom: 0.35rem;
+      opacity: 0.8;
+    }
+
+    .chapter-accordion {
+      margin-top: 0.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .chapter-group {
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      overflow: hidden;
+    }
+
+    .chapter-header {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.45rem 0.85rem;
+      background: var(--surface2);
+      border: none;
+      cursor: pointer;
+      font-size: 0.82rem;
+      font-weight: 600;
+      text-align: left;
+      transition: background 0.12s;
+    }
+
+    .chapter-header:hover {
+      background: var(--card-hover);
+    }
+
+    .chapter-chevron {
+      font-size: 0.65rem;
+      color: var(--muted);
+      transition: transform 0.15s;
+      flex-shrink: 0;
+    }
+
+    .chapter-chevron.open {
+      transform: rotate(90deg);
+    }
+
+    .chapter-group .leaf-scroll-box {
+      border: none;
+      border-top: 1px solid var(--border);
+      border-radius: 0;
+      margin-top: 0;
     }
 
     /* Status */
@@ -554,7 +750,7 @@
     <a href="/" class="site-nav-brand">Finding The Finger</a>
     <div class="site-nav-divider"></div>
     <div class="site-nav-links">
-      <a href="/" class="nav-link {% if page == 'search' %}active{% endif %}">Verse</a>
+      <a href="/" class="nav-link {% if page == 'search' %}active{% endif %}">Search</a>
       <a href="/map" class="nav-link {% if page == 'map' %}active{% endif %}">Map</a>
       <a href="/about" class="nav-link {% if page == 'about' %}active{% endif %}">About</a>
     </div>

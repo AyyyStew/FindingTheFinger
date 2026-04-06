@@ -152,9 +152,9 @@
       <h3>Search</h3>
 
       <div class="sidebar-tabs">
-        <button class="sidebar-tab" :class="{active: searchTab==='history'}" @click="searchTab='history'">History</button>
-        <button class="sidebar-tab" :class="{active: searchTab==='verse'}"   @click="searchTab='verse'">Verse</button>
-        <button class="sidebar-tab" :class="{active: searchTab==='text'}"    @click="searchTab='text'">Free text</button>
+        <button class="sidebar-tab" :class="{active: searchTab==='history'}"  @click="searchTab='history'">History</button>
+        <button class="sidebar-tab" :class="{active: searchTab==='passage'}"  @click="searchTab='passage'">Passage</button>
+        <button class="sidebar-tab" :class="{active: searchTab==='text'}"     @click="searchTab='text'">Free text</button>
       </div>
 
       <!-- History tab actions -->
@@ -162,10 +162,10 @@
         <button class="sidebar-btn secondary" style="flex:1" @click="history=[]">Clear history</button>
       </div>
 
-      <!-- Verse tab -->
-      <div x-show="searchTab==='verse'">
+      <!-- Passage tab -->
+      <div x-show="searchTab==='passage'">
         <div class="sidebar-search-row">
-          <select x-model="selectedCorpus" @change="acValid=false; refInput=''; acItems=[]">
+          <select x-model="selectedCorpus" @change="acValid=false; acSelectedNode=null; refInput=''; acItems=[]">
             <template x-for="c in corpora" :key="c.corpus">
               <option :value="c.corpus" x-text="shortName(c.corpus)"></option>
             </template>
@@ -177,16 +177,33 @@
               <template x-if="acItems.length === 0">
                 <div class="ac-empty">No matches</div>
               </template>
-              <template x-for="(item, i) in acItems" :key="i">
+              <template x-for="(item, i) in acItems" :key="item.id">
                 <div class="ac-item" :class="{active: acActive===i}"
-                  @mousedown.prevent="acSelect(item)" x-text="item"></div>
+                  :style="`padding-left:${0.6 + item.depth * 0.8}rem`"
+                  @mousedown.prevent="acSelect(item)">
+                  <span x-text="item.label"></span>
+                  <span class="ac-level" x-text="item.level_name"></span>
+                </div>
               </template>
             </div>
           </div>
         </div>
+
+        <!-- Height pills — shown after a passage is selected -->
+        <div x-show="acSelectedNode" class="height-pills" style="margin-bottom:0.5rem">
+          <span class="height-pill-label">Find similar at:</span>
+          <template x-for="h in (acSelectedNode ? Object.keys(mapData?.corpus_levels?.[mapData?.corpora?.indexOf(selectedCorpus)] || {}).map(Number).sort() : [])" :key="h">
+            <button class="height-pill"
+              :class="{active: similarHeight === h}"
+              @click="similarHeight = h"
+              x-text="levelName(mapData?.corpora?.indexOf(selectedCorpus), h)">
+            </button>
+          </template>
+        </div>
+
         <button class="sidebar-btn" style="margin-bottom:0.4rem"
           :disabled="searchLoading || !acValid"
-          @click="doVerseSearch()">
+          @click="doPassageSearch()">
           <span x-show="!searchLoading">Find similar</span>
           <span x-show="searchLoading">Searching…</span>
         </button>
@@ -228,13 +245,13 @@
               <div class="sr-trad" x-text="`${r.tradition} · ${shortName(r.corpus)}`"></div>
               <div class="sr-text" x-text="r.text"></div>
               <button class="sidebar-btn secondary" style="margin-top:0.4rem;font-size:0.78rem;padding:0.3rem 0.5rem"
-                @click.stop="doSimilarSearch(r.unit_id)">Find similar</button>
+                @click.stop="doSimilarSearch(r.unit_id, r.height)">Find similar</button>
             </div>
           </template>
         </div>
       </template>
 
-      <!-- Verse / free text results -->
+      <!-- Passage / free text results -->
       <template x-if="searchTab !== 'history'">
         <div>
           <div class="sidebar-status" x-show="!searchLoading && results.length === 0 && searched">
@@ -251,13 +268,17 @@
             <div class="sidebar-result" :class="{active: activeResult===r.unit_id}"
               @mouseenter="hoverResult(r)" @mouseleave="unhoverResult()"
               @click="selectResult(r)">
-              <div class="sr-ref" :style="`color:${tradColor(r.tradition)}`" x-text="r.label || ''"></div>
+              <div style="display:flex;align-items:baseline;gap:0.4rem;margin-bottom:0.2rem">
+                <div class="sr-ref" :style="`color:${tradColor(r.tradition)}`" x-text="r.label || ''"></div>
+                <span class="sr-level" x-show="r.height > 0"
+                  x-text="levelName(mapData?.corpora?.indexOf(r.corpus), r.height)"></span>
+              </div>
               <div class="sr-trad" x-text="`${r.tradition} · ${shortName(r.corpus)}`"></div>
               <div class="sr-text" x-text="r.text"></div>
               <div class="sr-sim" x-show="r.similarity != null"
                 x-text="`${(r.similarity*100).toFixed(1)}% similar`"></div>
               <button class="sidebar-btn secondary" style="margin-top:0.4rem;font-size:0.78rem;padding:0.3rem 0.5rem"
-                @click.stop="doSimilarSearch(r.unit_id)">Find similar</button>
+                @click.stop="doSimilarSearch(r.unit_id, r.height)">Find similar</button>
             </div>
           </template>
         </div>

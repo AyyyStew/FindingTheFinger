@@ -54,13 +54,14 @@ SELECT
     t.name                                      AS tradition,
     u.label,
     u.text,
+    u.height,
     1 - (e.vector <=> CAST(:query_vec AS vector)) AS similarity
 FROM embedding e
 JOIN unit    u ON e.unit_id      = u.id
 JOIN corpus  c ON u.corpus_id    = c.id
 JOIN tradition t ON c.tradition_id = t.id
 WHERE e.model_name = :model
-  AND u.height = 0
+  {height_filter}
   {allowlist_clause}
   {tradition_filter}
   {corpus_filter}
@@ -85,15 +86,21 @@ def _run_similarity(
     offset: int = 0,
     exclude_tradition: Optional[str] = None,
     only_corpora: Optional[list[str]] = None,
+    target_height: Optional[int] = None,
 ) -> list[dict]:
     tradition_filter = ""
     corpus_filter    = ""
+    height_filter    = "AND u.height = 0"   # default: leaves only
     params = _allowlist_params({
         "query_vec": _vec_str(vector),
         "model":     MODEL_NAME,
         "limit":     limit,
         "offset":    offset,
     })
+
+    if target_height is not None:
+        height_filter = "AND u.height = :target_height"
+        params["target_height"] = target_height
 
     if exclude_tradition:
         tradition_filter = "AND t.name != :exclude_tradition"
@@ -104,6 +111,7 @@ def _run_similarity(
         params["only_corpora"] = only_corpora
 
     sql = text(_SIMILARITY_SQL.format(
+        height_filter=height_filter,
         allowlist_clause=_allowlist_clause(),
         tradition_filter=tradition_filter,
         corpus_filter=corpus_filter,
@@ -112,7 +120,7 @@ def _run_similarity(
     with Session(get_engine()) as session:
         rows = session.execute(sql, params).fetchall()
 
-    cols = ["unit_id", "corpus", "tradition", "label", "text", "similarity"]
+    cols = ["unit_id", "corpus", "tradition", "label", "text", "height", "similarity"]
     return [dict(zip(cols, row)) for row in rows]
 
 
@@ -122,8 +130,9 @@ def search_by_vector(
     offset: int = 0,
     exclude_tradition: Optional[str] = None,
     only_corpora: Optional[list[str]] = None,
+    target_height: Optional[int] = None,
 ) -> list[dict]:
-    return _run_similarity(vector, limit, offset, exclude_tradition, only_corpora)
+    return _run_similarity(vector, limit, offset, exclude_tradition, only_corpora, target_height)
 
 
 def search_by_verse(
@@ -158,6 +167,7 @@ def search_by_unit_id(
     offset: int = 0,
     exclude_tradition: Optional[str] = None,
     only_corpora: Optional[list[str]] = None,
+    target_height: Optional[int] = None,
 ) -> list[dict]:
     """
     Similarity search anchored on any unit, regardless of height.
@@ -223,33 +233,92 @@ def search_by_unit_id(
             norm   = np.linalg.norm(mean)
             vector = (mean / norm).tolist() if norm > 0 else mean.tolist()
 
-    return _run_similarity(vector, limit, offset, exclude_tradition, only_corpora)
+    return _run_similarity(vector, limit, offset, exclude_tradition, only_corpora, target_height)
 
 
 # ---------------------------------------------------------------------------
 # Browse helpers
 # ---------------------------------------------------------------------------
 
-def get_refs(corpus_name: str, q: str, limit: int = 20) -> list[str]:
+def get_refs(corpus_name: str, q: str, limit: int = 20) -> list[dict]:
+    """
+    Return a hierarchical tree of matching units for autocomplete.
+
+    Finds units whose labels match `q`, then fetches their full ancestor chain
+    so the client can render the tree with correct indentation:
+        Genesis          (h=2, Book)
+          Genesis 1      (h=1, Chapter)
+            Genesis 1:1  (h=0, Verse)
+
+    Each node: {id, label, height, level_name, parent_id, children: []}
+    Root nodes (parent_id IS NULL) appear at the top level.
+    """
     with Session(get_engine()) as session:
-        rows = session.execute(text("""
-            SELECT u.label
+        # Find matching units at any height
+        match_rows = session.execute(text("""
+            SELECT u.id, u.label, u.height, u.parent_id
             FROM unit   u
             JOIN corpus c ON u.corpus_id = c.id
-            WHERE c.name    = :corpus
-              AND u.height  = 0
+            WHERE c.name     = :corpus
               AND u.label ILIKE :fuzzy
-            ORDER BY
-                CASE WHEN u.label ILIKE :suffix THEN 0 ELSE 1 END,
-                u.id
+            ORDER BY u.height DESC, u.id
             LIMIT :n
         """), {
             "corpus": corpus_name,
-            "fuzzy":  f"%{q}%",
-            "suffix": f"% {q}" if q else "%",
+            "fuzzy":  f"%{q}%" if q else "%",
             "n":      limit,
         }).fetchall()
-    return [r[0] for r in rows if r[0]]
+
+        if not match_rows:
+            return []
+
+        # Collect IDs of matches + all their ancestors via recursive CTE
+        match_ids = [r[0] for r in match_rows]
+        all_rows = session.execute(text("""
+            WITH RECURSIVE ancestors AS (
+                SELECT id, label, height, parent_id
+                FROM unit WHERE id = ANY(:ids)
+                UNION
+                SELECT u.id, u.label, u.height, u.parent_id
+                FROM unit u
+                JOIN ancestors a ON u.id = a.parent_id
+            )
+            SELECT DISTINCT a.id, a.label, a.height, a.parent_id,
+                            COALESCE(cl.name, 'Level ' || a.height) AS level_name
+            FROM ancestors a
+            LEFT JOIN corpus c  ON c.name = :corpus
+            LEFT JOIN corpus_level cl ON cl.corpus_id = c.id AND cl.height = a.height
+            ORDER BY a.height DESC, a.id
+        """), {"ids": match_ids, "corpus": corpus_name}).fetchall()
+
+    # Build flat lookup
+    nodes = {
+        r[0]: {"id": r[0], "label": r[1], "height": r[2],
+                "parent_id": r[3], "level_name": r[4], "children": [],
+                "is_match": r[0] in set(match_ids)}
+        for r in all_rows
+    }
+
+    # Wire up parent→child relationships
+    roots = []
+    for node in nodes.values():
+        pid = node["parent_id"]
+        if pid is not None and pid in nodes:
+            nodes[pid]["children"].append(node)
+        else:
+            roots.append(node)
+
+    # Sort children by id (natural order within corpus)
+    def _sort(node):
+        node["children"].sort(key=lambda n: n["id"])
+        for c in node["children"]:
+            _sort(c)
+
+    roots.sort(key=lambda n: n["id"])
+    for r in roots:
+        _sort(r)
+
+    return roots
 
 
 def get_corpora() -> list[dict]:
@@ -261,9 +330,27 @@ def get_corpora() -> list[dict]:
         WHERE 1=1 {_allowlist_clause()}
         ORDER BY t.name, c.name
     """)
+    levels_sql = text("""
+        SELECT c.name, cl.height, cl.name
+        FROM corpus_level cl
+        JOIN corpus c ON cl.corpus_id = c.id
+        ORDER BY c.name, cl.height
+    """)
     with Session(get_engine()) as session:
         rows = session.execute(sql, params).fetchall()
-    return [{"corpus": r[0], "tradition": r[1]} for r in rows]
+        level_rows = session.execute(levels_sql).fetchall()
+
+    # Build levels dict per corpus: {corpus_name: {height: level_name}}
+    corpus_levels: dict[str, dict[int, str]] = {}
+    for corpus_name, height, level_name in level_rows:
+        if corpus_name not in corpus_levels:
+            corpus_levels[corpus_name] = {}
+        corpus_levels[corpus_name][height] = level_name
+
+    return [
+        {"corpus": r[0], "tradition": r[1], "levels": corpus_levels.get(r[0], {0: "Verse"})}
+        for r in rows
+    ]
 
 
 def get_passage(corpus_name: str, label: str) -> dict | None:
@@ -285,7 +372,7 @@ def get_passage(corpus_name: str, label: str) -> dict | None:
 def get_unit_by_id(unit_id: int) -> dict | None:
     with Session(get_engine()) as session:
         row = session.execute(text("""
-            SELECT u.text, u.label, c.name, t.name
+            SELECT u.text, u.label, c.name, t.name, u.height
             FROM unit      u
             JOIN corpus    c ON u.corpus_id    = c.id
             JOIN tradition t ON c.tradition_id = t.id
@@ -294,7 +381,35 @@ def get_unit_by_id(unit_id: int) -> dict | None:
         """), {"uid": unit_id}).fetchone()
     if not row:
         return None
-    return {"text": row[0], "label": row[1], "corpus": row[2], "tradition": row[3]}
+    return {"id": unit_id, "text": row[0], "label": row[1], "corpus": row[2], "tradition": row[3], "height": row[4]}
+
+
+def get_unit_leaves(unit_id: int) -> list[dict]:
+    """Return all h=0 descendant leaves with their labels, text, and direct parent label."""
+    with Session(get_engine()) as session:
+        # Also fetch the source unit height so callers can decide rendering
+        src = session.execute(
+            text("SELECT height FROM unit WHERE id = :uid"), {"uid": unit_id}
+        ).fetchone()
+        src_height = src[0] if src else 0
+
+        rows = session.execute(text("""
+            WITH RECURSIVE descendants AS (
+                SELECT id, parent_id FROM unit WHERE id = :uid
+                UNION ALL
+                SELECT u.id, u.parent_id FROM unit u JOIN descendants d ON u.parent_id = d.id
+            )
+            SELECT u.label, u.text, p.label AS parent_label, p.height AS parent_height
+            FROM unit u
+            JOIN descendants d ON d.id = u.id
+            LEFT JOIN unit p ON u.parent_id = p.id
+            WHERE u.height = 0 AND u.text IS NOT NULL
+            ORDER BY u.id
+        """), {"uid": unit_id}).fetchall()
+    return {
+        "height": src_height,
+        "leaves": [{"label": r[0], "text": r[1], "parent_label": r[2], "parent_height": r[3]} for r in rows],
+    }
 
 
 # ---------------------------------------------------------------------------

@@ -412,7 +412,12 @@ body { overflow: hidden; }
 .sidebar-result .sr-ref {
   font-size: 0.78rem;
   font-weight: 600;
-  margin-bottom: 0.2rem;
+}
+
+.sidebar-result .sr-level {
+  font-size: 0.68rem;
+  color: var(--muted);
+  font-weight: 400;
 }
 
 .sidebar-result .sr-trad {

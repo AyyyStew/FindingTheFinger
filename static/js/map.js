@@ -19,6 +19,7 @@ let _rawPoints        = [];     // raw points array (same ref as _rawMapData.poi
 let _byCorpusHeight   = {};     // ci -> h -> point[]  (raw points, plain objects)
 let _pointById        = null;   // Map<id, point>  (raw points)
 let _deckActivePoints = [];     // current active subset — passed to ScatterplotLayer
+let _deckActiveIds    = new Set(); // Set<id> of currently displayed points — used to filter lines
 let _tradKde          = {};     // tradName -> [{polygon,color,alpha}]  (computed once)
 let _corpKde          = {};     // corpName -> [{polygon,color,alpha}]  (computed once)
 let _deck             = null;   // Deck.gl instance — MUST live outside Alpine:
@@ -93,22 +94,24 @@ function mapApp() {
     tradState: {},
 
     // ---- Search state ----
-    searchTab:      'history',
-    corpora:        [],
-    selectedCorpus: '',
-    refInput:       '',
-    queryInput:     '',
-    acItems:        [],
-    acActive:       -1,
-    acOpen:         false,
-    acValid:        false,
-    _acTimer:       null,
-    searchLoading:  false,
-    searched:       false,
-    results:        [],
-    activeResult:   null,
-    highlightIds:   new Set(),
-    history:        [],
+    searchTab:        'history',
+    corpora:          [],
+    selectedCorpus:   '',
+    refInput:         '',
+    queryInput:       '',
+    acItems:          [],   // flat list of nodes for keyboard nav: {id,label,height,level_name,depth}
+    acActive:         -1,
+    acOpen:           false,
+    acValid:          false,
+    acSelectedNode:   null, // the full node the user confirmed
+    similarHeight:    null, // null = default (same as source), or int
+    _acTimer:         null,
+    searchLoading:    false,
+    searched:         false,
+    results:          [],
+    activeResult:     null,
+    highlightIds:     new Set(),
+    history:          [],
 
     // _activePoints kept only for the perf overlay count; real data in _deckActivePoints
     _activePoints:  [],
@@ -148,8 +151,8 @@ function mapApp() {
           _byCorpusHeight[p.ci][p.h].push(p);
         }
 
-        // O(1) lookup for leaves
-        _pointById = new Map(_rawPoints.filter(p => p.h === 0).map(p => [p.id, p]));
+        // O(1) lookup for all points (all heights)
+        _pointById = new Map(_rawPoints.map(p => [p.id, p]));
 
         // ── Now assign to Alpine state (for UI bindings) ──────────────────────
         this.mapData     = data;
@@ -234,6 +237,7 @@ function mapApp() {
       // Both: _deckActivePoints is a plain array for deck.gl;
       // _activePoints is kept in Alpine only for the perf overlay count.
       _deckActivePoints  = active;
+      _deckActiveIds     = new Set(active.map(p => p.id));
       this._activePoints = active;
     },
 
@@ -469,10 +473,11 @@ const layers = [];
       }
 
       // -- Search constellation: lines from query verse to each result --
+      // Only draw lines to points that are currently displayed on the map.
       if (this._queryPoint && this.results.length > 0) {
         const lineData = this.results
           .map(r => ({ src: this._queryPoint, tgt: _pointById.get(r.unit_id) }))
-          .filter(d => d.tgt);
+          .filter(d => d.tgt && _deckActiveIds.has(d.tgt.id));
 
         layers.push(new deck.LineLayer({
           id: 'search-lines',
@@ -559,6 +564,7 @@ const layers = [];
           const entry = {
             unit_id:   d.id,
             label:     d.label,
+            height:    d.h,
             tradition: data.traditions[d.ti],
             corpus:    data.corpora[d.ci],
             text:      v.text,
@@ -573,33 +579,9 @@ const layers = [];
     // -----------------------------------------------------------------------
     // Search
     // -----------------------------------------------------------------------
-    async doVerseSearch() {
-      if (!this.acValid) return;
-      this.searchLoading = true;
-      this.searched = true;
-      try {
-        const params = new URLSearchParams({
-          corpus: this.selectedCorpus,
-          ref:    this.refInput,
-          limit:  50,
-          offset: 0,
-        });
-        for (const c of this._visibleCorpora()) params.append('corpora', c);
-        const rows = await fetch('/api/v1/verse?' + params).then(r => {
-          if (!r.ok) throw new Error(r.statusText);
-          return r.json();
-        });
-        const ci = _rawMapData.corpora.indexOf(this.selectedCorpus);
-        this._queryPoint = _rawPoints.find(p => p.h === 0 && p.ci === ci && p.label === this.refInput) || null;
-        this.results      = rows;
-        this.highlightIds = new Set(rows.map(r => r.unit_id));
-        this.render('verse-search');
-        if (rows.length > 0) this.fitResults();
-      } catch(e) {
-        console.error(e);
-      } finally {
-        this.searchLoading = false;
-      }
+    async doPassageSearch() {
+      if (!this.acValid || !this.acSelectedNode) return;
+      await this.doSimilarSearch(this.acSelectedNode.id, this.similarHeight);
     },
 
     async doTextSearch() {
@@ -616,7 +598,7 @@ const layers = [];
         });
         this._queryPoint  = null;
         this.results      = rows;
-        this.highlightIds = new Set(rows.map(r => r.unit_id));
+        this.highlightIds = new Set(rows.map(r => r.unit_id).filter(id => _deckActiveIds.has(id)));
         this.render('text-search');
         if (rows.length > 0) this.fitResults();
       } catch(e) {
@@ -626,21 +608,33 @@ const layers = [];
       }
     },
 
-    async doSimilarSearch(unit_id) {
+    async doSimilarSearch(unit_id, targetHeight = null) {
       this.searchLoading = true;
       this.searched      = true;
-      this.searchTab     = 'verse';
+      this.searchTab     = 'passage';
       try {
         const params = new URLSearchParams({ limit: 50, offset: 0 });
+        if (targetHeight !== null) params.set('target_height', targetHeight);
         for (const c of this._visibleCorpora()) params.append('corpora', c);
         const rows = await fetch(`/api/v1/similar/${unit_id}?${params}`).then(r => {
           if (!r.ok) throw new Error(r.statusText);
           return r.json();
         });
-        // Set query point to the clicked unit's UMAP position (any height)
-        this._queryPoint = _rawPoints.find(p => p.id === unit_id) || null;
+        // Reflect selected passage in the input box
+        const srcPoint = _rawPoints.find(p => p.id === unit_id);
+        if (srcPoint) {
+          this.selectedCorpus   = _rawMapData.corpora[srcPoint.ci];
+          this.refInput         = srcPoint.label;
+          this.acValid          = true;
+          this.acSelectedNode   = { id: unit_id, label: srcPoint.label, height: srcPoint.h };
+          this.similarHeight    = targetHeight !== null ? targetHeight : srcPoint.h;
+        }
+        // Set query point to the source unit's UMAP position (any height)
+        this._queryPoint = srcPoint || null;
         this.results      = rows;
-        this.highlightIds = new Set(rows.map(r => r.unit_id));
+        // Only highlight results that are actually displayed on the map.
+        // If results are at h>0 and those layers aren't visible, don't dim all visible points.
+        this.highlightIds = new Set(rows.map(r => r.unit_id).filter(id => _deckActiveIds.has(id)));
         this.render('similar-search');
         if (rows.length > 0) this.fitResults();
       } catch(e) {
@@ -729,23 +723,33 @@ const layers = [];
       if (!this.selectedCorpus) return;
       try {
         const params = new URLSearchParams({ corpus: this.selectedCorpus, q, limit });
-        const items  = await fetch('/api/v1/refs?' + params).then(r => r.json());
-        this.acItems  = items;
+        const tree   = await fetch('/api/v1/refs?' + params).then(r => r.json());
+        // Flatten tree depth-first for keyboard navigation, preserving depth for indentation
+        const flat = [];
+        const walk = (nodes, depth) => {
+          for (const n of nodes) {
+            flat.push({ ...n, depth, children: undefined });
+            if (n.children?.length) walk(n.children, depth + 1);
+          }
+        };
+        walk(tree, 0);
+        this.acItems  = flat;
         this.acActive = -1;
-        this.acOpen   = items.length > 0;
+        this.acOpen   = flat.length > 0;
       } catch { this.acOpen = false; }
     },
 
     acFocus() {
-      if (!this.refInput.trim()) this._acFetch('', 3);
+      if (!this.refInput.trim()) this._acFetch('', 5);
     },
 
     acInput() {
-      this.acValid = false;
+      this.acValid        = false;
+      this.acSelectedNode = null;
       clearTimeout(this._acTimer);
       const val = this.refInput.trim();
-      if (!val) { this._acFetch('', 3); return; }
-      this._acTimer = setTimeout(() => this._acFetch(val, 20), 180);
+      if (!val) { this._acFetch('', 5); return; }
+      this._acTimer = setTimeout(() => this._acFetch(val, 30), 180);
     },
 
     acKeydown(e) {
@@ -761,17 +765,20 @@ const layers = [];
           this.acSelect(this.acItems[this.acActive]);
         } else {
           this.acOpen = false;
-          this.doVerseSearch();
+          this.doPassageSearch();
         }
       } else if (e.key === 'Escape') {
         this.acOpen = false;
       }
     },
 
-    acSelect(item) {
-      this.refInput = item;
-      this.acValid  = true;
-      this.acOpen   = false;
+    acSelect(node) {
+      this.refInput       = node.label;
+      this.acSelectedNode = node;
+      this.acValid        = true;
+      this.acOpen         = false;
+      // Default similar height to same as selected node
+      this.similarHeight  = node.height;
     },
 
     // -----------------------------------------------------------------------
