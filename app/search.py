@@ -308,39 +308,55 @@ def get_map_data(version_id: int | None = None) -> dict | None:
             ORDER  BY up.unit_id
         """), {"run_id": run_id}).fetchall()
 
-    if not rows:
-        return None
+        if not rows:
+            return None
 
-    # Build compact index arrays to reduce JSON payload
-    traditions = sorted({r[7] for r in rows})
-    corpora    = sorted({r[6] for r in rows})
-    trad_idx   = {t: i for i, t in enumerate(traditions)}
-    corp_idx   = {c: i for i, c in enumerate(corpora)}
+        # Build compact index arrays to reduce JSON payload
+        traditions = sorted({r[7] for r in rows})
+        corpora    = sorted({r[6] for r in rows})
+        trad_idx   = {t: i for i, t in enumerate(traditions)}
+        corp_idx   = {c: i for i, c in enumerate(corpora)}
 
-    # Map corpus -> tradition for the client
-    corp_trad  = {}
-    for r in rows:
-        corp_trad[r[6]] = r[7]
-    trad_of_corpus = [trad_idx[corp_trad[c]] for c in corpora]
+        # Map corpus -> tradition for the client
+        corp_trad  = {}
+        for r in rows:
+            corp_trad[r[6]] = r[7]
+        trad_of_corpus = [trad_idx[corp_trad[c]] for c in corpora]
 
-    points = [
-        {
-            "id":    r[0],
-            "x":     round(r[1], 4),
-            "y":     round(r[2], 4),
-            "s":     r[3],          # corpus_seq (None for h > 0)
-            "h":     r[4],          # height (0 = leaf)
-            "label": r[5],
-            "ti":    trad_idx[r[7]],
-            "ci":    corp_idx[r[6]],
-        }
-        for r in rows
-    ]
+        points = [
+            {
+                "id":    r[0],
+                "x":     round(r[1], 4),
+                "y":     round(r[2], 4),
+                "s":     r[3],          # corpus_seq (None for h > 0)
+                "h":     r[4],          # height (0 = leaf)
+                "label": r[5],
+                "ti":    trad_idx[r[7]],
+                "ci":    corp_idx[r[6]],
+            }
+            for r in rows
+        ]
+
+        # corpus_levels[ci] = {height: level_name} e.g. {0: 'Verse', 1: 'Chapter', 2: 'Book'}
+        level_rows = session.execute(text("""
+            SELECT c.name, cl.height, cl.name AS level_name
+            FROM   corpus_level cl
+            JOIN   corpus       c ON c.id = cl.corpus_id
+            WHERE  c.name = ANY(:corpora)
+            ORDER  BY c.name, cl.height
+        """), {"corpora": corpora}).fetchall()
+
+        corpus_levels = [{} for _ in corpora]
+        for corp_name, height, level_name in level_rows:
+            ci = corp_idx.get(corp_name)
+            if ci is not None:
+                corpus_levels[ci][height] = level_name
 
     return {
         "run":            run,
         "traditions":     traditions,
         "corpora":        corpora,
         "trad_of_corpus": trad_of_corpus,
+        "corpus_levels":  corpus_levels,
         "points":         points,
     }
