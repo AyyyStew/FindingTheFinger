@@ -5,6 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{% block title %}Finding The Finger{% endblock %}</title>
+  <link rel="icon" type="image/x-icon" href="/static/assets/logo.ico">
   {% block head %}{% endblock %}
   <style>
     *,
@@ -50,10 +51,13 @@
     }
 
     .site-nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
       font-size: 1.1rem;
       font-weight: 700;
       letter-spacing: -0.02em;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      background: linear-gradient(90deg, #ffffff, rgba(255, 255, 255, 0.4));
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
@@ -747,7 +751,9 @@
 <body>
 
   <nav class="site-nav">
-    <a href="/" class="site-nav-brand">Finding The Finger</a>
+    <a href="/" class="site-nav-brand">
+      <img src="/static/assets/logo.svg" alt=""
+        style="width:28px;height:28px;display:inline-block;flex-shrink:0">Finding The Finger</a>
     <div class="site-nav-divider"></div>
     <div class="site-nav-links">
       <a href="/" class="nav-link {% if page == 'search' %}active{% endif %}">Search</a>

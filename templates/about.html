@@ -2,15 +2,258 @@
 
 {% block title %}About — Finding The Finger{% endblock %}
 
-{% block content %}
-  <div class="container">
-    <header class="page-header">
-      <h1>About</h1>
-      <p>What is Finding The Finger?</p>
-    </header>
+{% block head %}
+<style>
+  .about-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.75rem;
+    margin-bottom: 1.25rem;
+  }
 
-    <div class="search-card">
-      <p style="color:var(--muted);font-size:0.9rem;text-align:center;">Content coming soon.</p>
+  .zen-quote {
+    position: relative;
+    text-align: center;
+    margin: 0 0 2.25rem;
+    padding: 1.5rem 2rem;
+  }
+
+  .zen-logo {
+    display: block;
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 1.25rem;
+  }
+
+  .zen-quote p {
+    font-size: 1.2rem;
+    font-style: italic;
+    font-weight: 700;
+    line-height: 1.75;
+    color: var(--text);
+    letter-spacing: 0.01em;
+    margin-bottom: 0.75rem;
+    position: relative;
+  }
+
+  .zen-quote cite {
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-style: normal;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .about-card h2 {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--text);
+    margin: 1.75rem 0 0.6rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .about-card h2 .si {
+    font-size: 1.05rem;
+    line-height: 1;
+  }
+
+  .about-card h2:first-of-type {
+    margin-top: 0;
+  }
+
+  .about-card p {
+    font-size: 0.9rem;
+    line-height: 1.75;
+    color: var(--text);
+    margin-bottom: 0.6rem;
+  }
+
+  .about-card p:last-child {
+    margin-bottom: 0;
+  }
+
+  .about-card p strong {
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .about-card hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 1.5rem 0;
+  }
+
+  .disclaimer-box {
+    background: rgba(248, 113, 113, 0.07);
+    border: 1px solid rgba(248, 113, 113, 0.25);
+    border-radius: 8px;
+    padding: 0.85rem 1rem;
+    font-size: 0.87rem;
+    line-height: 1.7;
+    color: #e2a0a0;
+  }
+
+  .disclaimer-box p {
+    color: #e2a0a0;
+    margin-bottom: 0.5rem;
+  }
+
+  .disclaimer-box p:last-child {
+    margin-bottom: 0;
+  }
+
+  .disclaimer-box strong {
+    color: #f5b0b0;
+  }
+
+  .about-links {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .about-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 1rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--accent);
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: border-color 0.15s, background 0.15s;
+  }
+
+  .about-link:hover {
+    border-color: var(--accent);
+    background: var(--card-hover);
+  }
+
+  .about-link.disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width:720px">
+
+  <header class="page-header">
+    <h1>About</h1>
+    <p>How Finding The Finger works</p>
+  </header>
+
+  <div class="about-card">
+
+    <blockquote class="zen-quote">
+      <img src="/static/assets/logo.svg" class="zen-logo" alt="Finding The Finger logo">
+      <p>The finger pointing at the moon is not the moon.</p>
+      <cite>— Zen proverb</cite>
+    </blockquote>
+    <div style="height:1px;background:linear-gradient(90deg,transparent,var(--border),transparent);margin-bottom:2rem">
+    </div>
+
+    <p>
+      <strong>Finding The Finger</strong> is a semantic similarity search engine across sacred and philosophical texts
+      from traditions including Abrahamic, Buddhist, Dharmic, Confucian, Norse, Shinto, Sikh, Taoist, and Zoroastrian
+      corpora.
+      Different traditions often point at the same things — this tool tries to find where those fingers align.
+    </p>
+
+    <hr>
+
+    <h2><span class="si">⚙️</span> How it works</h2>
+    <p>
+      Every passage in the dataset is converted into a <strong>dense vector embedding</strong> — a list of numbers
+      that captures its semantic meaning. Passages with similar meaning end up close together in this high-dimensional
+      space, regardless of language, tradition, or literal wording.
+    </p>
+    <p>
+      A <strong>passage</strong> is the smallest semantically coherent unit we could identify for each tradition —
+      the atom of meaning that the tradition itself tends to reference and quote. This varies: a <strong>verse</strong>
+      in the Bible, a <strong>shloka</strong> in the Bhagavad Gita,
+      a <strong>tuk</strong> in the Sri Guru Granth Sahib, and so on.
+      Where a tradition has no clear sub-unit, the smallest consistently-cited division was used.
+    </p>
+    <p>
+      Searches work by embedding your query (or the selected passage) into the same space, then finding the nearest
+      neighbours by <strong>cosine similarity</strong>.
+    </p>
+    <p>
+      The <strong>map view</strong> uses <strong>UMAP</strong> (Uniform Manifold Approximation and Projection) to reduce
+      the embeddings to two dimensions so you can visually explore how traditions cluster and overlap.
+    </p>
+
+    <hr>
+
+    <h2><span class="si">🧠</span> Embedding model</h2>
+    <p>
+      Embeddings are generated using <strong>nomic-embed-text-v1.5</strong>, a state-of-the-art open-source text
+      embedding model by Nomic AI. It produces 768-dimensional vectors optimised for semantic similarity tasks.
+      All embeddings are stored in <strong>PostgreSQL</strong> with the <strong>pgvector</strong> extension,
+      enabling fast nearest-neighbour search at scale.
+    </p>
+
+    <hr>
+
+    <h2><span class="si">📚</span> Higher-level passages</h2>
+    <p>
+      The corpus is structured hierarchically — verses sit inside chapters, which sit inside books.
+      Raw embeddings exist only at the verse level.
+    </p>
+    <p>
+      For chapter- or book-level searches, embeddings are <strong>aggregated on the fly</strong>: all descendant
+      verse embeddings are collected, averaged uniformly, and re-normalised onto the unit hypersphere.
+      This treats every verse as an equal contributor and gives a centroid that represents the passage as a whole.
+    </p>
+    <p>
+      <strong>Aggregation is inherently lossy.</strong> Averaging embeddings compresses a chapter's worth of distinct
+      ideas into a single point — thematic diversity, narrative arc, and tension between verses are all flattened out.
+      The resulting vector is a rough centre of gravity, not a true semantic representation of the whole.
+      Re-embedding at the chapter or book level using a model with a longer context window would produce meaningfully
+      better results; this is a known limitation and a likely area for future improvement.
+    </p>
+
+    <hr>
+
+    <h2><span class="si">⚠️</span> Disclaimers</h2>
+    <div class="disclaimer-box">
+      <p>
+        <strong>Similarity is semantic, not theological.</strong> A high similarity score means the passages use
+        comparable concepts, imagery, or language — it does not imply equivalence of meaning, doctrinal agreement,
+        or any claim about the relationship between traditions.
+      </p>
+      <p>
+        <strong>Translations matter.</strong> All texts are in English translation. Similarity scores reflect the
+        translated text, not the original — different translations of the same passage may score differently.
+      </p>
+      <p>
+        <strong>This is a tool for exploration, not scholarship.</strong> Results should be treated as starting
+        points for further reading, not as authoritative comparative analysis.
+      </p>
+    </div>
+
+  </div>
+
+  <div class="about-card">
+    <h2 style="margin-top:0"><span class="si">🔗</span> Links</h2>
+    <div class="about-links">
+      <a href="https://github.com/ayyystew/FindingTheFinger" class="about-link" target="_blank" rel="noopener">
+        ⬡ GitHub
+      </a>
+      <a class="about-link disabled" title="Dataset link coming soon">
+        📦 Dataset (coming soon)
+      </a>
     </div>
   </div>
+
+</div>
 {% endblock %}
