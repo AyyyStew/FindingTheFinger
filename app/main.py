@@ -12,7 +12,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from app.search import (
-    get_corpora, get_refs, get_passage,
+    get_corpora, get_refs, get_passage, get_unit_by_id,
+    get_map_data, get_map_versions,
     search_by_vector, search_by_verse,
     QUERY_PREFIX,
 )
@@ -119,6 +120,35 @@ def search(
         exclude_tradition=exclude_tradition,
         only_corpora=corpora or None,
     )
+
+
+@api.get("/unit/{unit_id}")
+def unit(unit_id: int):
+    row = get_unit_by_id(unit_id)
+    if not row:
+        raise HTTPException(404, f"Unit {unit_id} not found")
+    return row
+
+
+@api.get("/map/versions")
+def map_versions():
+    return get_map_versions()
+
+
+@api.get("/map")
+def map_data(version: Optional[int] = Query(None)):
+    data = get_map_data(version)
+    if not data:
+        raise HTTPException(404, "No UMAP projection found. Run scripts/compute_umap.py first.")
+    return data
+
+
+@api.get("/map/{version_id}")
+def map_data_version(version_id: int):
+    data = get_map_data(version_id)
+    if not data:
+        raise HTTPException(404, f"UMAP version {version_id} not found")
+    return data
 
 
 @api.get("/verse")

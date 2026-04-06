@@ -4,9 +4,12 @@ db/models.py
 SQLAlchemy ORM models for the Finding The Finger database.
 """
 
+from datetime import datetime
+
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
-    BigInteger, ForeignKey, Index, Integer, Text, JSON
+    BigInteger, DateTime, Float, ForeignKey, Index, Integer, Text, JSON,
+    func,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -90,3 +93,32 @@ class Embedding(Base):
     vector:     Mapped[list[float]] = mapped_column(Vector(768))
 
     unit: Mapped["Unit"] = relationship(back_populates="embeddings")
+
+
+class UmapRun(Base):
+    __tablename__ = "umap_run"
+
+    id:          Mapped[int]           = mapped_column(Integer, primary_key=True)
+    created_at:  Mapped[datetime]      = mapped_column(DateTime(timezone=True), server_default=func.now())
+    label:       Mapped[str | None]    = mapped_column(Text)
+    model_name:  Mapped[str]           = mapped_column(Text, nullable=False, default="nomic-embed-text-v1.5")
+    n_neighbors: Mapped[int | None]    = mapped_column(Integer)
+    min_dist:    Mapped[float | None]  = mapped_column(Float)
+
+    points: Mapped[list["UmapPoint"]] = relationship(back_populates="run", cascade="all, delete-orphan")
+
+
+class UmapPoint(Base):
+    __tablename__ = "umap_point"
+
+    umap_run_id: Mapped[int]       = mapped_column(ForeignKey("umap_run.id", ondelete="CASCADE"), primary_key=True)
+    unit_id:     Mapped[int]       = mapped_column(BigInteger, ForeignKey("unit.id"), primary_key=True)
+    x:           Mapped[float]     = mapped_column(Float, nullable=False)
+    y:           Mapped[float]     = mapped_column(Float, nullable=False)
+    corpus_seq:  Mapped[int | None] = mapped_column(Integer)
+
+    run: Mapped["UmapRun"] = relationship(back_populates="points")
+
+    __table_args__ = (
+        Index("ix_umap_point_run", "umap_run_id"),
+    )

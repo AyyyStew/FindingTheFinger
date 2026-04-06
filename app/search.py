@@ -205,3 +205,142 @@ def get_passage(corpus_name: str, label: str) -> dict | None:
     if not row:
         return None
     return {"text": row[0], "label": row[1], "corpus": row[2], "tradition": row[3]}
+
+
+def get_unit_by_id(unit_id: int) -> dict | None:
+    with Session(get_engine()) as session:
+        row = session.execute(text("""
+            SELECT u.text, u.label, c.name, t.name
+            FROM unit      u
+            JOIN corpus    c ON u.corpus_id    = c.id
+            JOIN tradition t ON c.tradition_id = t.id
+            WHERE u.id = :uid
+            LIMIT 1
+        """), {"uid": unit_id}).fetchone()
+    if not row:
+        return None
+    return {"text": row[0], "label": row[1], "corpus": row[2], "tradition": row[3]}
+
+
+# ---------------------------------------------------------------------------
+# Map / UMAP helpers
+# ---------------------------------------------------------------------------
+
+def get_map_versions() -> list[dict]:
+    with Session(get_engine()) as session:
+        rows = session.execute(text("""
+            SELECT r.id,
+                   r.created_at,
+                   r.label,
+                   r.model_name,
+                   r.n_neighbors,
+                   r.min_dist,
+                   COUNT(p.unit_id) AS point_count
+            FROM umap_run r
+            LEFT JOIN umap_point p ON p.umap_run_id = r.id
+            GROUP BY r.id
+            ORDER BY r.id DESC
+        """)).fetchall()
+    return [
+        {
+            "id":          r[0],
+            "created_at":  r[1].isoformat() if r[1] else None,
+            "label":       r[2],
+            "model_name":  r[3],
+            "n_neighbors": r[4],
+            "min_dist":    r[5],
+            "point_count": r[6],
+        }
+        for r in rows
+    ]
+
+
+def get_map_data(version_id: int | None = None) -> dict | None:
+    """
+    Return a compact UMAP projection payload.
+
+    Points use integer indices into `traditions` and `corpora` arrays to
+    reduce JSON size. All heights are included so the client can toggle
+    between leaf/parent layers without a second fetch.
+    """
+    with Session(get_engine()) as session:
+        if version_id is None:
+            run_row = session.execute(text("""
+                SELECT id, created_at, label, model_name, n_neighbors, min_dist
+                FROM   umap_run
+                ORDER  BY id DESC
+                LIMIT  1
+            """)).fetchone()
+        else:
+            run_row = session.execute(text("""
+                SELECT id, created_at, label, model_name, n_neighbors, min_dist
+                FROM   umap_run
+                WHERE  id = :id
+            """), {"id": version_id}).fetchone()
+
+        if not run_row:
+            return None
+
+        run_id = run_row[0]
+        run = {
+            "id":          run_row[0],
+            "created_at":  run_row[1].isoformat() if run_row[1] else None,
+            "label":       run_row[2],
+            "model_name":  run_row[3],
+            "n_neighbors": run_row[4],
+            "min_dist":    run_row[5],
+        }
+
+        rows = session.execute(text("""
+            SELECT up.unit_id,
+                   up.x,
+                   up.y,
+                   up.corpus_seq,
+                   u.height,
+                   u.label,
+                   c.name  AS corpus,
+                   t.name  AS tradition
+            FROM   umap_point  up
+            JOIN   unit        u  ON u.id           = up.unit_id
+            JOIN   corpus      c  ON c.id           = u.corpus_id
+            JOIN   tradition   t  ON t.id           = c.tradition_id
+            WHERE  up.umap_run_id = :run_id
+            ORDER  BY up.unit_id
+        """), {"run_id": run_id}).fetchall()
+
+    if not rows:
+        return None
+
+    # Build compact index arrays to reduce JSON payload
+    traditions = sorted({r[7] for r in rows})
+    corpora    = sorted({r[6] for r in rows})
+    trad_idx   = {t: i for i, t in enumerate(traditions)}
+    corp_idx   = {c: i for i, c in enumerate(corpora)}
+
+    # Map corpus -> tradition for the client
+    corp_trad  = {}
+    for r in rows:
+        corp_trad[r[6]] = r[7]
+    trad_of_corpus = [trad_idx[corp_trad[c]] for c in corpora]
+
+    points = [
+        {
+            "id":    r[0],
+            "x":     round(r[1], 4),
+            "y":     round(r[2], 4),
+            "s":     r[3],          # corpus_seq (None for h > 0)
+            "h":     r[4],          # height (0 = leaf)
+            "label": r[5],
+            "ti":    trad_idx[r[7]],
+            "ci":    corp_idx[r[6]],
+        }
+        for r in rows
+    ]
+
+    return {
+        "run":            run,
+        "traditions":     traditions,
+        "corpora":        corpora,
+        "trad_of_corpus": trad_of_corpus,
+        "points":         points,
+    }

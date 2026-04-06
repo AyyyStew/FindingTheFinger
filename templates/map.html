@@ -2,15 +2,1126 @@
 
 {% block title %}Map — Finding The Finger{% endblock %}
 
-{% block content %}
-  <div class="container">
-    <header class="page-header">
-      <h1>Map</h1>
-      <p>Explore connections across traditions</p>
-    </header>
+{% block head %}
+<script src="https://unpkg.com/deck.gl@9.0.0/dist.min.js"></script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<style>
+  /* Override body layout for full-screen map */
+  body { overflow: hidden; }
+  .site-footer { display: none; }
 
-    <div class="search-card">
-      <p style="color:var(--muted);font-size:0.9rem;text-align:center;">Content coming soon.</p>
+  /* Map fills everything below the nav */
+  #map-root {
+    position: fixed;
+    top: 56px; /* nav height */
+    left: 0; right: 0; bottom: 0;
+    overflow: hidden;
+  }
+
+  #deck-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* ---- Floating panel (layer controls, top-left) ---- */
+  .map-panel {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    background: rgba(26,29,39,0.92);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.9rem 1rem;
+    min-width: 160px;
+    backdrop-filter: blur(8px);
+    z-index: 10;
+    font-size: 0.85rem;
+    user-select: none;
+  }
+
+  .map-panel-title {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 0.65rem;
+  }
+
+  .layer-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0;
+    cursor: pointer;
+    color: var(--text);
+    transition: color 0.12s;
+  }
+
+  .layer-toggle:hover { color: var(--accent); }
+
+  .layer-toggle input[type="checkbox"] {
+    accent-color: var(--accent);
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+  }
+
+  .panel-divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 0.6rem 0;
+  }
+
+  .run-info {
+    font-size: 0.72rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  /* ---- Sidebar (right) ---- */
+  .map-sidebar {
+    position: absolute;
+    top: 0; right: 0; bottom: 0;
+    width: 320px;
+    background: rgba(26,29,39,0.95);
+    border-left: 1px solid var(--border);
+    backdrop-filter: blur(8px);
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.25s ease;
+  }
+
+  .map-sidebar.open { transform: translateX(0); }
+
+  .sidebar-toggle {
+    position: absolute;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%) translateX(-100%);
+    background: rgba(26,29,39,0.92);
+    border: 1px solid var(--border);
+    border-right: none;
+    border-radius: 8px 0 0 8px;
+    padding: 0.6rem 0.5rem;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 0.85rem;
+    writing-mode: vertical-rl;
+    z-index: 11;
+    transition: color 0.15s;
+    backdrop-filter: blur(6px);
+  }
+
+  .sidebar-toggle:hover { color: var(--accent); }
+
+  .sidebar-header {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .sidebar-header h3 {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.75rem;
+  }
+
+  .sidebar-tabs {
+    display: flex;
+    gap: 0.25rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.25rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .sidebar-tab {
+    flex: 1;
+    padding: 0.4rem 0.5rem;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-size: 0.8rem;
+    font-weight: 500;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .sidebar-tab.active {
+    background: var(--surface2);
+    color: var(--text);
+  }
+
+  .sidebar-search-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .sidebar-search-row select,
+  .sidebar-search-row input {
+    font-size: 0.85rem;
+    padding: 0.45rem 0.65rem;
+  }
+
+  .sidebar-search-row select { width: 110px; flex-shrink: 0; }
+  .sidebar-search-row .ac-wrap { flex: 1; position: relative; }
+
+  .sidebar-btn {
+    width: 100%;
+    padding: 0.5rem;
+    background: var(--accent);
+    border: none;
+    border-radius: 7px;
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+
+  .sidebar-btn:hover { opacity: 0.88; }
+  .sidebar-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .sidebar-btn.secondary {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .sidebar-btn.secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+  .sidebar-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.75rem 1rem;
+  }
+
+  .sidebar-status {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.85rem;
+    padding: 2rem 0;
+  }
+
+  /* Result rows in sidebar */
+  .sidebar-result {
+    padding: 0.65rem 0.75rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    margin-bottom: 0.5rem;
+    cursor: pointer;
+    transition: background 0.1s, border-color 0.1s;
+  }
+
+  .sidebar-result:hover,
+  .sidebar-result.active {
+    background: var(--card-hover);
+    border-color: var(--accent);
+  }
+
+  .sidebar-result .sr-ref {
+    font-size: 0.78rem;
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 0.2rem;
+  }
+
+  .sidebar-result .sr-trad {
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-bottom: 0.3rem;
+  }
+
+  .sidebar-result .sr-text {
+    font-size: 0.82rem;
+    color: var(--text);
+    line-height: 1.45;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .sidebar-result .sr-sim {
+    font-size: 0.72rem;
+    color: var(--success);
+    font-weight: 700;
+    margin-top: 0.3rem;
+  }
+
+  /* Tooltip */
+  #map-tooltip {
+    position: fixed;
+    pointer-events: none;
+    background: rgba(26,29,39,0.95);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.6rem 0.85rem;
+    max-width: 260px;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    z-index: 100;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    display: none;
+  }
+
+  #map-tooltip .tt-ref {
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 0.2rem;
+    font-size: 0.78rem;
+  }
+
+  #map-tooltip .tt-trad {
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-bottom: 0.3rem;
+  }
+
+  #map-tooltip .tt-text {
+    color: var(--text);
+  }
+
+  /* Loading overlay */
+  #map-loading {
+    position: absolute;
+    inset: 0;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    z-index: 50;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  #map-loading .spinner {
+    width: 2rem; height: 2rem;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  [x-cloak] { display: none !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="map-root" x-data="mapApp()" x-init="init()" x-cloak>
+
+  <!-- Loading overlay -->
+  <div id="map-loading" x-show="loading">
+    <div class="spinner"></div>
+    <span x-text="loadMsg">Loading map data…</span>
+  </div>
+
+  <!-- deck.gl canvas -->
+  <canvas id="deck-canvas"></canvas>
+
+  <!-- Tooltip -->
+  <div id="map-tooltip">
+    <div class="tt-ref"  id="tt-ref"></div>
+    <div class="tt-trad" id="tt-trad"></div>
+    <div class="tt-text" id="tt-text"></div>
+  </div>
+
+  <!-- Layer controls -->
+  <div class="map-panel" x-show="!loading">
+    <div class="map-panel-title">Layers</div>
+
+    <label class="layer-toggle">
+      <input type="checkbox" x-model="layers.leaves" @change="render('toggle')"> Verses
+    </label>
+    <label class="layer-toggle">
+      <input type="checkbox" x-model="layers.books" @change="render('toggle')"> Books / chapters
+    </label>
+    <label class="layer-toggle">
+      <input type="checkbox" x-model="layers.kde" @change="render('toggle')"> Density clouds
+    </label>
+    <label class="layer-toggle">
+      <input type="checkbox" x-model="layers.labels" @change="render('toggle')"> Tradition labels
+    </label>
+
+    <hr class="panel-divider">
+
+    <div class="run-info" x-show="runMeta">
+      <div x-text="runMeta?.label || 'Projection'"></div>
+      <div x-text="runMeta?.created_at ? new Date(runMeta.created_at).toLocaleDateString() : ''"></div>
+      <div x-text="`${totalPoints.toLocaleString()} points`"></div>
     </div>
   </div>
+
+  <!-- Sidebar toggle button -->
+  <button class="sidebar-toggle" @click="sidebarOpen = !sidebarOpen" x-show="!loading">
+    <span x-text="sidebarOpen ? '▶ Search' : '◀ Search'"></span>
+  </button>
+
+  <!-- Search sidebar -->
+  <div class="map-sidebar" :class="{open: sidebarOpen}" x-show="!loading">
+
+    <div class="sidebar-header">
+      <h3>Search</h3>
+
+      <!-- Tabs -->
+      <div class="sidebar-tabs">
+        <button class="sidebar-tab" :class="{active: searchTab==='verse'}" @click="searchTab='verse'">Verse</button>
+        <button class="sidebar-tab" :class="{active: searchTab==='text'}"  @click="searchTab='text'">Free text</button>
+      </div>
+
+      <!-- Verse tab -->
+      <div x-show="searchTab==='verse'">
+        <div class="sidebar-search-row">
+          <select x-model="selectedCorpus" @change="acValid=false; refInput=''; acItems=[]">
+            <template x-for="c in corpora" :key="c.corpus">
+              <option :value="c.corpus" x-text="shortName(c.corpus)"></option>
+            </template>
+          </select>
+          <div class="ac-wrap" @click.outside="acOpen=false">
+            <input type="text" x-model="refInput" autocomplete="off" placeholder="e.g. John 3:16"
+              @focus="acFocus()" @input="acInput()" @keydown="acKeydown($event)" />
+            <div x-show="acOpen" class="autocomplete-dropdown">
+              <template x-if="acItems.length === 0">
+                <div class="ac-empty">No matches</div>
+              </template>
+              <template x-for="(item, i) in acItems" :key="i">
+                <div class="ac-item" :class="{active: acActive===i}"
+                  @mousedown.prevent="acSelect(item)" x-text="item"></div>
+              </template>
+            </div>
+          </div>
+        </div>
+        <button class="sidebar-btn" style="margin-bottom:0.4rem"
+          :disabled="searchLoading || !acValid"
+          @click="doVerseSearch()">
+          <span x-show="!searchLoading">Find similar</span>
+          <span x-show="searchLoading">Searching…</span>
+        </button>
+      </div>
+
+      <!-- Free text tab -->
+      <div x-show="searchTab==='text'">
+        <input type="text" x-model="queryInput" placeholder="e.g. Love your enemies"
+          style="font-size:0.85rem;margin-bottom:0.5rem"
+          @keydown.enter="doTextSearch()" />
+        <button class="sidebar-btn" style="margin-bottom:0.4rem"
+          :disabled="searchLoading || !queryInput.trim()"
+          @click="doTextSearch()">
+          <span x-show="!searchLoading">Search</span>
+          <span x-show="searchLoading">Searching…</span>
+        </button>
+      </div>
+
+      <!-- Show all / clear -->
+      <div style="display:flex;gap:0.4rem" x-show="results.length > 0">
+        <button class="sidebar-btn secondary" style="flex:1" @click="fitResults()">Show all</button>
+        <button class="sidebar-btn secondary" style="flex:1" @click="clearResults()">Clear</button>
+      </div>
+    </div>
+
+    <!-- Results list -->
+    <div class="sidebar-body">
+      <div class="sidebar-status" x-show="!searchLoading && results.length === 0 && searched">
+        No results found.
+      </div>
+      <div class="sidebar-status" x-show="!searched && results.length === 0">
+        Search for a verse or phrase to highlight it on the map.
+      </div>
+      <div class="sidebar-status" x-show="searchLoading">
+        <span class="spinner" style="width:1.1rem;height:1.1rem;border-width:2px;display:inline-block;vertical-align:middle;margin-right:0.4rem"></span>
+        Searching…
+      </div>
+
+      <template x-for="r in results" :key="r.unit_id">
+        <div class="sidebar-result" :class="{active: activeResult===r.unit_id}"
+          @mouseenter="hoverResult(r)" @mouseleave="unhoverResult()"
+          @click="selectResult(r)">
+          <div class="sr-ref"  x-text="r.label || ''"></div>
+          <div class="sr-trad" x-text="`${r.tradition} · ${shortName(r.corpus)}`"></div>
+          <div class="sr-text" x-text="r.text"></div>
+          <div class="sr-sim"  x-show="r.similarity != null"
+            x-text="`${(r.similarity*100).toFixed(1)}% similar`"></div>
+        </div>
+      </template>
+    </div>
+
+  </div><!-- /sidebar -->
+
+  <!-- Perf overlay — remove once stable -->
+  <div x-show="!loading" style="position:absolute;bottom:0.5rem;left:1rem;font-size:0.7rem;
+       color:var(--muted);font-family:monospace;pointer-events:none;opacity:0.7">
+    renders: <span x-text="_renderCount"></span>
+    &nbsp;last: <span x-text="_lastRenderMs.toFixed(1)"></span>ms
+  </div>
+
+</div><!-- /map-root -->
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ---------------------------------------------------------------------------
+// Stable accessor functions — defined once so deck.gl sees the same
+// reference across render() calls and skips unnecessary re-uploads
+// ---------------------------------------------------------------------------
+const getPos3D  = d => [d.x, d.y, 0];
+const getPos2D  = d => [d.x, d.y];
+
+// ---------------------------------------------------------------------------
+// Tradition colours (must match index.html)
+// ---------------------------------------------------------------------------
+const TRADITION_CONFIG = {
+  'Abrahamic':   { color: '#f5c518' },
+  'Buddhist':    { color: '#fb923c' },
+  'Confucian':   { color: '#34d399' },
+  'Dharmic':     { color: '#c084fc' },
+  'Norse':       { color: '#93c5fd' },
+  'Shinto':      { color: '#f9a8d4' },
+  'Sikh':        { color: '#22d3ee' },
+  'Taoist':      { color: '#d4d4d8' },
+  'Zoroastrian': { color: '#f87171' },
+};
+
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return [r, g, b];
+}
+
+function tradColor(name) {
+  return TRADITION_CONFIG[name]?.color || '#6c8cff';
+}
+
+// ---------------------------------------------------------------------------
+// Alpine app
+// ---------------------------------------------------------------------------
+function mapApp() {
+  return {
+    loading:   true,
+    loadMsg:   'Loading map data…',
+    sidebarOpen: false,
+
+    // Map data
+    mapData:   null,
+    runMeta:   null,
+    totalPoints: 0,
+
+    // Layer state
+    layers: {
+      leaves:        true,
+      books:         false,
+      kde:           true,
+      constellations: false,
+      labels:        true,
+    },
+
+    // Search state
+    searchTab:    'verse',
+    corpora:      [],
+    selectedCorpus: '',
+    refInput:     '',
+    queryInput:   '',
+    acItems:      [],
+    acActive:     -1,
+    acOpen:       false,
+    acValid:      false,
+    _acTimer:     null,
+    searchLoading: false,
+    searched:     false,
+    results:      [],
+    activeResult: null,
+    highlightIds: new Set(),
+
+    // deck.gl instance
+    _deck:        null,
+    _zoom:        0,
+    _initialZoom: 0,
+    _hexRadius:   0.3,
+    _kdePolygons: [],   // precomputed per-tradition contour polygons
+
+    // cached filtered arrays (built once after load, never filtered again in render)
+    _leaves:   [],
+    _parents:  [],
+    _pointById: null,   // Map<unit_id, point> for O(1) lookup
+
+    // search constellation
+    _queryPoint: null,
+
+    // perf instrumentation
+    _renderCount:  0,
+    _lastRenderMs: 0,
+    _renderSource: '',
+
+    async init() {
+      // Load corpora for search autocomplete
+      try {
+        const data = await fetch('/api/v1/corpora').then(r => r.json());
+        this.corpora = data;
+        if (data.length) this.selectedCorpus = data[0].corpus;
+      } catch(e) { console.error('Failed to load corpora', e); }
+
+      // Load map data
+      try {
+        this.loadMsg = 'Loading map data…';
+        const data = await fetch('/api/v1/map').then(r => r.json());
+        this.mapData   = data;
+        this.runMeta   = data.run;
+        // Pre-cache filtered arrays — never filter again inside render()
+        this._leaves   = data.points.filter(p => p.h === 0);
+        this._parents  = data.points.filter(p => p.h === 1);
+        this._pointById = new Map(this._leaves.map(p => [p.id, p]));
+        this.totalPoints = this._leaves.length;
+
+        this.loadMsg = 'Computing density clouds…';
+        await this.$nextTick();
+        this._kdePolygons = this._computeKDE(data);
+
+        this.loading = false;
+        await this.$nextTick();
+        this._initDeck();
+        this.render('init');
+      } catch(e) {
+        this.loadMsg = 'Failed to load map data. Has compute_umap.py been run?';
+        console.error(e);
+      }
+    },
+
+    // -----------------------------------------------------------------------
+    // deck.gl
+    // -----------------------------------------------------------------------
+    _initDeck() {
+      const canvas  = document.getElementById('deck-canvas');
+      const data    = this.mapData;
+
+      // Compute initial view bounds — avoid Math.min/max spread on large arrays
+      let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
+      for (const p of this._leaves) {
+        if (p.x < xMin) xMin = p.x;
+        if (p.x > xMax) xMax = p.x;
+        if (p.y < yMin) yMin = p.y;
+        if (p.y > yMax) yMax = p.y;
+      }
+      const xMid  = (xMin + xMax) / 2;
+      const yMid  = (yMin + yMax) / 2;
+      const span  = Math.max(xMax - xMin, yMax - yMin) * 1.05;
+      const canvasW = canvas.clientWidth  || window.innerWidth;
+      const canvasH = canvas.clientHeight || (window.innerHeight - 56);
+      const zoom    = Math.log2(Math.min(canvasW, canvasH) / span);
+
+      // Hex radius: ~80 bins across the full span
+      this._hexRadius = span / 80;
+
+      this._deck = new deck.Deck({
+        canvas,
+        views: new deck.OrthographicView({ flipY: false }),
+        initialViewState: {
+          target: [xMid, yMid, 0],
+          zoom,
+          minZoom: zoom - 4,
+          maxZoom: zoom + 8,
+        },
+        controller: true,
+        onViewStateChange: ({ viewState }) => {
+          this._zoom = viewState.zoom;
+        },
+        onHover: (info) => this._onHover(info),
+        onClick: (info) => this._onClick(info),
+        getTooltip: null,  // we use a custom DOM tooltip
+      });
+
+      this._zoom        = zoom;
+      this._initialZoom = zoom;
+    },
+
+    render(source = 'unknown') {
+      if (!this._deck || !this.mapData) return;
+      const t0 = performance.now();
+      this._renderSource = source;
+
+      const data = this.mapData;
+      const zoom = this._zoom;
+
+      const ZOOM_HOVER_ENABLE = this._initialZoom + 4;
+      const hoverEnabled      = zoom >= ZOOM_HOVER_ENABLE;
+
+      const layers = [];
+
+      // -- KDE density clouds --
+      if (this.layers.kde && this._kdePolygons.length > 0) {
+        layers.push(new deck.PolygonLayer({
+          id: 'kde',
+          data: this._kdePolygons,
+          pickable: false,
+          stroked: true,
+          filled: true,
+          getPolygon:     d => d.polygon,
+          getFillColor:   d => [...hexToRgb(d.color), Math.round(d.alpha * 255)],
+          getLineColor:   d => [...hexToRgb(d.color), 80],
+          getLineWidth:   0.5,
+          lineWidthUnits: 'pixels',
+        }));
+      }
+
+      if (this.layers.leaves) {
+        layers.push(new deck.ScatterplotLayer({
+          id: 'leaves',
+          data: this._leaves,
+          pickable: hoverEnabled,
+          opacity: 0.5,
+          stroked: false,
+          filled: true,
+          radiusMinPixels: 1,
+          radiusMaxPixels: 4,
+          getRadius: 0.08,
+          getPosition: getPos3D,
+          getFillColor: d => {
+            const rgb = hexToRgb(tradColor(data.traditions[d.ti]));
+            if (this.highlightIds.size > 0) {
+              return this.highlightIds.has(d.id) ? [...rgb, 255] : [...rgb, 40];
+            }
+            return [...rgb, 200];
+          },
+          updateTriggers: {
+            getFillColor: [this.highlightIds.size, this.highlightIds],
+          },
+        }));
+      }
+
+      // -- Book / chapter centroids --
+      if (this.layers.books) {
+        layers.push(new deck.ScatterplotLayer({
+          id: 'books',
+          data: this._parents,
+          pickable: true,
+          opacity: 0.9,
+          stroked: true,
+          filled: true,
+          radiusMinPixels: 3,
+          radiusMaxPixels: 10,
+          getRadius: 0.2,
+          getPosition: getPos3D,
+          getFillColor: d => [...hexToRgb(tradColor(data.traditions[d.ti])), 160],
+          getLineColor: d => [...hexToRgb(tradColor(data.traditions[d.ti])), 255],
+          getLineWidth: 1.5,
+          lineWidthUnits: 'pixels',
+        }));
+      }
+
+      // -- Tradition labels (at tradition centroids) --
+      if (this.layers.labels && zoom >= this._initialZoom - 1) {
+        const labelData = this._traditionCentroids(data);
+        layers.push(new deck.TextLayer({
+          id: 'trad-labels',
+          data: labelData,
+          pickable: false,
+          getPosition: getPos3D,
+          getText:     d => d.name,
+          getColor:     d => [...hexToRgb(d.color), 200],
+          getSize:      14,
+          fontWeight:   700,
+          background:   true,
+          getBackgroundColor: [15, 17, 23, 180],
+          backgroundPadding: [4, 2],
+          fontFamily: "'Segoe UI', system-ui, sans-serif",
+          getTextAnchor: 'middle',
+          getAlignmentBaseline: 'center',
+        }));
+      }
+
+      // -- Search constellation: lines from query verse to each result --
+      if (this._queryPoint && this.results.length > 0) {
+        const lineData = this.results
+          .map(r => ({ src: this._queryPoint, tgt: this._pointById.get(r.unit_id) }))
+          .filter(d => d.tgt);
+        layers.push(new deck.LineLayer({
+          id: 'search-lines',
+          data: lineData,
+          pickable: false,
+          getSourcePosition: d => [d.src.x, d.src.y],
+          getTargetPosition: d => [d.tgt.x, d.tgt.y],
+          getColor: d => [...hexToRgb(tradColor(data.traditions[d.tgt.ti])), 200],
+          getWidth: 1.5,
+          widthUnits: 'pixels',
+        }));
+        // Highlight the query point itself
+        layers.push(new deck.ScatterplotLayer({
+          id: 'query-point',
+          data: [this._queryPoint],
+          pickable: false,
+          getPosition: getPos3D,
+          getFillColor: [255, 255, 255, 220],
+          getLineColor: [108, 140, 255, 255],
+          stroked: true,
+          filled: true,
+          getRadius: 0.15,
+          radiusMinPixels: 5,
+          radiusMaxPixels: 12,
+          getLineWidth: 2,
+          lineWidthUnits: 'pixels',
+        }));
+      }
+
+      this._deck.setProps({ layers });
+
+      const dt = performance.now() - t0;
+      this._renderCount++;
+      this._lastRenderMs = dt;
+      console.debug(`[render #${this._renderCount} ← ${source}] ${dt.toFixed(1)}ms | ${layers.length} layers | zoom=${zoom.toFixed(2)}`);
+    },
+
+    // -----------------------------------------------------------------------
+    // Hover / click
+    // -----------------------------------------------------------------------
+    _onHover(info) {
+      const tooltip = document.getElementById('map-tooltip');
+      if (!info.object) {
+        tooltip.style.display = 'none';
+        return;
+      }
+      const d    = info.object;
+      const data = this.mapData;
+      const trad = data.traditions[d.ti];
+      const corp = data.corpora[d.ci];
+
+      document.getElementById('tt-ref').textContent  = d.label || '';
+      document.getElementById('tt-trad').textContent = `${trad} · ${this.shortName(corp)}`;
+      document.getElementById('tt-text').textContent = '';
+
+      tooltip.style.display = 'block';
+      tooltip.style.left = (info.x + 12) + 'px';
+      tooltip.style.top  = (info.y + 12) + 'px';
+
+      // Fetch verse text lazily
+      if (d.h === 0) {
+        fetch(`/api/v1/unit/${d.id}`)
+          .then(r => r.ok ? r.json() : null)
+          .then(v => {
+            if (v && tooltip.style.display !== 'none') {
+              document.getElementById('tt-text').textContent = v.text;
+            }
+          })
+          .catch(() => {});
+      }
+    },
+
+    _onClick(info) {
+      if (!info.object) return;
+      const d = info.object;
+      if (d.h !== 0) return;
+
+      // Add to / replace results in sidebar
+      const data = this.mapData;
+      this.sidebarOpen = true;
+      fetch(`/api/v1/unit/${d.id}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(v => {
+          if (!v) return;
+          const result = {
+            unit_id: d.id,
+            label: d.label,
+            tradition: data.traditions[d.ti],
+            corpus: data.corpora[d.ci],
+            text: v.text,
+            similarity: null,
+          };
+          // Prepend if not already in list
+          if (!this.results.find(r => r.unit_id === d.id)) {
+            this.results = [result, ...this.results];
+          }
+          this.activeResult = d.id;
+        })
+        .catch(() => {});
+    },
+
+    // -----------------------------------------------------------------------
+    // Search
+    // -----------------------------------------------------------------------
+    async doVerseSearch() {
+      if (!this.acValid) return;
+      this.searchLoading = true;
+      this.searched = true;
+      try {
+        const params = new URLSearchParams({
+          corpus: this.selectedCorpus,
+          ref:    this.refInput,
+          limit:  50,
+          offset: 0,
+        });
+        const rows = await fetch('/api/v1/verse?' + params).then(r => {
+          if (!r.ok) throw new Error(r.statusText);
+          return r.json();
+        });
+        // Find query verse position in UMAP space for constellation lines
+        const ci = this.mapData.corpora.indexOf(this.selectedCorpus);
+        this._queryPoint = this._leaves.find(p => p.ci === ci && p.label === this.refInput) || null;
+
+        this.results = rows;
+        this.highlightIds = new Set(rows.map(r => r.unit_id));
+        this.render('verse-search');
+        if (rows.length > 0) this.fitResults();
+      } catch(e) {
+        console.error(e);
+      } finally {
+        this.searchLoading = false;
+      }
+    },
+
+    async doTextSearch() {
+      const q = this.queryInput.trim();
+      if (!q) return;
+      this.searchLoading = true;
+      this.searched = true;
+      try {
+        const params = new URLSearchParams({ q, limit: 50, offset: 0 });
+        const rows = await fetch('/api/v1/search?' + params).then(r => {
+          if (!r.ok) throw new Error(r.statusText);
+          return r.json();
+        });
+        this._queryPoint = null;  // no single source for free-text
+        this.results = rows;
+        this.highlightIds = new Set(rows.map(r => r.unit_id));
+        this.render('text-search');
+        if (rows.length > 0) this.fitResults();
+      } catch(e) {
+        console.error(e);
+      } finally {
+        this.searchLoading = false;
+      }
+    },
+
+    fitResults() {
+      if (!this._deck || !this.mapData || this.results.length === 0) return;
+
+      // Find 2D positions of results in map data
+      const idSet = new Set(this.results.map(r => r.unit_id));
+      const pts = this.mapData.points.filter(p => idSet.has(p.id));
+      if (pts.length === 0) return;
+
+      let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
+      for (const p of pts) {
+        if (p.x < xMin) xMin = p.x;
+        if (p.x > xMax) xMax = p.x;
+        if (p.y < yMin) yMin = p.y;
+        if (p.y > yMax) yMax = p.y;
+      }
+      const xMid = (xMin + xMax) / 2;
+      const yMid = (yMin + yMax) / 2;
+      const span = Math.max(xMax - xMin, yMax - yMin) * 1.4 || 2;
+
+      const canvas  = document.getElementById('deck-canvas');
+      const minDim  = Math.min(canvas.clientWidth, canvas.clientHeight) || 600;
+      const newZoom = Math.log2(minDim / span);
+
+      this._deck.setProps({
+        initialViewState: {
+          ...this._deck.props.initialViewState,
+          target: [xMid, yMid, 0],
+          zoom: newZoom,
+          transitionDuration: 600,
+        },
+      });
+    },
+
+    hoverResult(r) {
+      this.activeResult = r.unit_id;
+      // Pan to result if it has a known position
+      const pt = this.mapData?.points.find(p => p.id === r.unit_id);
+      if (pt && this._deck) {
+        this._deck.setProps({
+          initialViewState: {
+            ...this._deck.props.initialViewState,
+            target: [pt.x, pt.y, 0],
+            transitionDuration: 400,
+          },
+        });
+      }
+    },
+
+    unhoverResult() {
+      this.activeResult = null;
+    },
+
+    selectResult(r) {
+      this.hoverResult(r);
+    },
+
+    clearResults() {
+      this.results      = [];
+      this.highlightIds = new Set();
+      this.searched     = false;
+      this.activeResult = null;
+      this._queryPoint  = null;
+      this.render('clear');
+    },
+
+    // -----------------------------------------------------------------------
+    // Autocomplete (reuses index.html pattern)
+    // -----------------------------------------------------------------------
+    async _acFetch(q, limit) {
+      if (!this.selectedCorpus) return;
+      try {
+        const params = new URLSearchParams({ corpus: this.selectedCorpus, q, limit });
+        const items  = await fetch('/api/v1/refs?' + params).then(r => r.json());
+        this.acItems  = items;
+        this.acActive = -1;
+        this.acOpen   = items.length > 0;
+      } catch { this.acOpen = false; }
+    },
+
+    acFocus() {
+      if (!this.refInput.trim()) this._acFetch('', 3);
+    },
+
+    acInput() {
+      this.acValid = false;
+      clearTimeout(this._acTimer);
+      const val = this.refInput.trim();
+      if (!val) { this._acFetch('', 3); return; }
+      this._acTimer = setTimeout(() => this._acFetch(val, 20), 180);
+    },
+
+    acKeydown(e) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (this.acOpen) this.acActive = Math.min(this.acActive + 1, this.acItems.length - 1);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (this.acOpen) this.acActive = Math.max(this.acActive - 1, -1);
+      } else if (e.key === 'Enter') {
+        if (this.acOpen && this.acActive >= 0) {
+          e.preventDefault();
+          this.acSelect(this.acItems[this.acActive]);
+        } else {
+          this.acOpen = false;
+          this.doVerseSearch();
+        }
+      } else if (e.key === 'Escape') {
+        this.acOpen = false;
+      }
+    },
+
+    acSelect(item) {
+      this.refInput = item;
+      this.acValid  = true;
+      this.acOpen   = false;
+    },
+
+    // -----------------------------------------------------------------------
+    // Helpers
+    // -----------------------------------------------------------------------
+    shortName(name) {
+      return name.replace(/\s*\([^)]+\)\s*$/, '').replace(/^Bible\s*[—-]\s*/, '');
+    },
+
+    _traditionCentroids(data) {
+      const byTrad = {};
+      for (const p of data.points) {
+        if (p.h !== 0) continue;
+        const t = data.traditions[p.ti];
+        if (!byTrad[t]) byTrad[t] = { xs: [], ys: [] };
+        byTrad[t].xs.push(p.x);
+        byTrad[t].ys.push(p.y);
+      }
+      return Object.entries(byTrad).map(([name, { xs, ys }]) => ({
+        name,
+        color: tradColor(name),
+        x: xs.reduce((a, b) => a + b, 0) / xs.length,
+        y: ys.reduce((a, b) => a + b, 0) / ys.length,
+      }));
+    },
+
+    _buildConstellationLines(data) {
+      // Group leaf points by corpus, sort by corpus_seq, return adjacent pairs
+      const byCorpus = {};
+      for (const p of data.points) {
+        if (p.h !== 0 || p.s == null) continue;
+        const c = p.ci;
+        if (!byCorpus[c]) byCorpus[c] = [];
+        byCorpus[c].push(p);
+      }
+      const lines = [];
+      for (const [ci, pts] of Object.entries(byCorpus)) {
+        pts.sort((a, b) => a.s - b.s);
+        const color = tradColor(data.traditions[data.trad_of_corpus[ci]]);
+        for (let i = 0; i < pts.length - 1; i++) {
+          lines.push({ x0: pts[i].x, y0: pts[i].y, x1: pts[i+1].x, y1: pts[i+1].y, color });
+        }
+      }
+      return lines;
+    },
+
+    _computeKDE(data) {
+      // Group leaf points by tradition and run d3.contourDensity per tradition
+      const byTrad = {};
+      for (const p of data.points) {
+        if (p.h !== 0) continue;
+        const t = data.traditions[p.ti];
+        if (!byTrad[t]) byTrad[t] = [];
+        byTrad[t].push(p);
+      }
+
+      // Compute data bounds for grid mapping
+      const allLeaves = data.points.filter(p => p.h === 0);
+      const xs = allLeaves.map(p => p.x);
+      const ys = allLeaves.map(p => p.y);
+      const xMin = Math.min(...xs), xMax = Math.max(...xs);
+      const yMin = Math.min(...ys), yMax = Math.max(...ys);
+
+      const GRID = 200;
+      const xScale = d3.scaleLinear().domain([xMin, xMax]).range([0, GRID]);
+      const yScale = d3.scaleLinear().domain([yMin, yMax]).range([0, GRID]);
+
+      const polygons = [];
+
+      for (const [tradName, pts] of Object.entries(byTrad)) {
+        const color = tradColor(tradName);
+
+        const density = d3.contourDensity()
+          .x(d => xScale(d.x))
+          .y(d => yScale(d.y))
+          .size([GRID, GRID])
+          .bandwidth(8)
+          .thresholds(4)(pts);
+
+        // Only keep the top ~50% threshold contours to avoid huge blobs
+        if (density.length === 0) continue;
+        const maxVal = density[density.length - 1].value;
+        const minThresh = maxVal * 0.08;
+
+        for (const contour of density) {
+          if (contour.value < minThresh) continue;
+          const alpha = 0.04 + 0.12 * (contour.value / maxVal);
+
+          for (const ring of contour.coordinates) {
+            // Map from grid coords back to world coords
+            const worldRing = ring.map(coords =>
+              coords.map(([gx, gy]) => [
+                xScale.invert(gx),
+                yScale.invert(gy),
+              ])
+            );
+            polygons.push({ polygon: worldRing, color, alpha });
+          }
+        }
+      }
+
+      return polygons;
+    },
+  };
+}
+</script>
 {% endblock %}
