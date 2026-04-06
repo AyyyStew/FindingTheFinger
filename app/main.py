@@ -14,7 +14,7 @@ from fastapi.templating import Jinja2Templates
 from app.search import (
     get_corpora, get_refs, get_passage, get_unit_by_id,
     get_map_data, get_map_versions,
-    search_by_vector, search_by_verse,
+    search_by_vector, search_by_verse, search_by_unit_id,
     QUERY_PREFIX,
 )
 
@@ -149,6 +149,26 @@ def map_data_version(version_id: int):
     if not data:
         raise HTTPException(404, f"UMAP version {version_id} not found")
     return data
+
+
+@api.get("/similar/{unit_id}")
+def similar(
+    unit_id: int,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    exclude_tradition: Optional[str] = Query(None),
+    corpora: list[str] = Query(default=[]),
+):
+    results = search_by_unit_id(
+        unit_id=unit_id,
+        limit=limit,
+        offset=offset,
+        exclude_tradition=exclude_tradition,
+        only_corpora=corpora or None,
+    )
+    if not results:
+        raise HTTPException(404, f"No embedding found for unit {unit_id}")
+    return results
 
 
 @api.get("/verse")

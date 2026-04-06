@@ -164,6 +164,34 @@ body { overflow: hidden; }
   flex-shrink: 0;
 }
 
+/* "Hide all / Show all" button */
+.ls-all-btn {
+  font-size: 0.7rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--muted);
+  padding: 0.15rem 0.45rem;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.ls-all-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* KDE chip — small icon button on tradition/corpus rows */
+.kde-chip {
+  font-size: 0.8rem;
+  color: var(--muted);
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.12s;
+  flex-shrink: 0;
+  line-height: 1;
+  border: 1px solid transparent;
+}
+.kde-chip:hover { color: var(--text); border-color: var(--border); }
+.kde-chip.active { color: var(--accent); border-color: var(--accent); }
+
 /* Corpus block (inside expanded tradition) */
 .corpus-block {
   padding: 0 0 0.25rem 1rem;

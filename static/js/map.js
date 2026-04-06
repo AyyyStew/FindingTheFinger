@@ -19,7 +19,8 @@ let _rawPoints        = [];     // raw points array (same ref as _rawMapData.poi
 let _byCorpusHeight   = {};     // ci -> h -> point[]  (raw points, plain objects)
 let _pointById        = null;   // Map<id, point>  (raw points)
 let _deckActivePoints = [];     // current active subset — passed to ScatterplotLayer
-let _deckKdePolygons  = [];     // KDE contours — passed to PolygonLayer
+let _tradKde          = {};     // tradName -> [{polygon,color,alpha}]  (computed once)
+let _corpKde          = {};     // corpName -> [{polygon,color,alpha}]  (computed once)
 let _deck             = null;   // Deck.gl instance — MUST live outside Alpine:
                                 // Alpine deep-proxies all component state, which wraps
                                 // deck's internal layer cache. deck.gl marks layer.data
@@ -72,7 +73,7 @@ function mapApp() {
 
     // ---- Global display toggles ----
     layers: {
-      kde:          true,
+      scatter:      true,
       labels:       true,
       corpusLabels: false,
     },
@@ -163,7 +164,7 @@ function mapApp() {
 
         this.loadMsg = 'Computing density clouds…';
         await this.$nextTick();
-        _deckKdePolygons = this._computeKDE();  // reads _rawPoints internally
+        this._computeKDE();  // populates _tradKde and _corpKde from _rawPoints
 
         this.loading = false;
         await this.$nextTick();
@@ -201,9 +202,9 @@ function mapApp() {
           }
           // Ensure h=0 exists even if corpus_levels missing entry
           if (!(0 in heights)) heights[0] = true;
-          corporaState[corpName] = { visible: true, expanded: false, heights };
+          corporaState[corpName] = { visible: true, expanded: false, heights, kde: false };
         }
-        this.tradState[trad] = { visible: true, expanded: false, corpora: corporaState };
+        this.tradState[trad] = { visible: true, expanded: false, kde: true, corpora: corporaState };
       }
     },
 
@@ -234,18 +235,45 @@ function mapApp() {
       // _activePoints is kept in Alpine only for the perf overlay count.
       _deckActivePoints  = active;
       this._activePoints = active;
-      console.debug(`[recompute] active=${active.length} | isProxy=${active !== active} | ctor=${active?.constructor?.name}`);
     },
 
     // -----------------------------------------------------------------------
     // Toggle helpers — each calls _recomputeActive + render
     // -----------------------------------------------------------------------
+    toggleAllTraditions() {
+      const anyVisible = Object.values(this.tradState).some(ts => ts.visible);
+      for (const ts of Object.values(this.tradState)) {
+        ts.visible = !anyVisible;
+        ts.kde     = !anyVisible;
+        for (const cs of Object.values(ts.corpora)) {
+          cs.visible = !anyVisible;
+          cs.kde     = !anyVisible;
+        }
+      }
+      this._recomputeActive();
+      this.render('filter');
+    },
+
+    get anyTraditionVisible() {
+      return Object.values(this.tradState).some(ts => ts.visible);
+    },
+
     toggleTradition(tradName) {
       const ts = this.tradState[tradName];
       ts.visible = !ts.visible;
       // Cascade to corpora
       for (const cs of Object.values(ts.corpora)) cs.visible = ts.visible;
       this._recomputeActive();
+      this.render('filter');
+    },
+
+    toggleTradKde(tradName) {
+      this.tradState[tradName].kde = !this.tradState[tradName].kde;
+      this.render('filter');
+    },
+
+    toggleCorpusKde(tradName, corpName) {
+      this.tradState[tradName].corpora[corpName].kde = !this.tradState[tradName].corpora[corpName].kde;
       this.render('filter');
     },
 
@@ -344,31 +372,39 @@ function mapApp() {
       const data = _rawMapData;   // plain, never proxied
       const zoom = _zoom;
 
-      console.debug(`[render:${source}] _deckActivePoints.length=${_deckActivePoints.length} | _deckKdePolygons.length=${_deckKdePolygons.length} | _rawMapData points=${_rawMapData?.points?.length}`);
-      // Check: are these plain arrays or Alpine proxies?
-      console.debug(`[render] _deckActivePoints ctor=${_deckActivePoints?.constructor?.name} | _deckKdePolygons ctor=${_deckKdePolygons?.constructor?.name}`);
+const layers = [];
 
-      const layers = [];
-
-      // -- KDE density clouds --
-      if (this.layers.kde && _deckKdePolygons.length > 0) {
-        layers.push(new deck.PolygonLayer({
-          id: 'kde',
-          data: _deckKdePolygons,
-          pickable: false,
-          stroked: true,
-          filled: true,
-          getPolygon:         d => d.polygon,
-          getFillColor:       d => [...hexToRgb(d.color), Math.round(d.alpha * 255)],
-          getLineColor:       d => [...hexToRgb(d.color), 80],
-          getLineWidth:       0.5,
-          lineWidthUnits:     'pixels',
-        }));
+      // -- KDE density clouds (per-tradition and per-corpus, filtered by tradState) --
+      {
+        const kdePolygons = [];
+        for (const [tradName, ts] of Object.entries(this.tradState)) {
+          if (ts.kde && _tradKde[tradName]) {
+            for (const p of _tradKde[tradName]) kdePolygons.push(p);
+          }
+          for (const [corpName, cs] of Object.entries(ts.corpora)) {
+            if (cs.kde && _corpKde[corpName]) {
+              for (const p of _corpKde[corpName]) kdePolygons.push(p);
+            }
+          }
+        }
+        if (kdePolygons.length > 0) {
+          layers.push(new deck.PolygonLayer({
+            id: 'kde',
+            data: kdePolygons,
+            pickable: false,
+            stroked: true,
+            filled: true,
+            getPolygon:     d => d.polygon,
+            getFillColor:   d => [...hexToRgb(d.color), Math.round(d.alpha * 255)],
+            getLineColor:   d => [...hexToRgb(d.color), 80],
+            getLineWidth:   0.5,
+            lineWidthUnits: 'pixels',
+          }));
+        }
       }
 
       // -- Active points scatter --
-      console.debug(`[render] ScatterplotLayer check: _deckActivePoints.length=${_deckActivePoints.length} → pushing=${_deckActivePoints.length > 0}`);
-      if (_deckActivePoints.length > 0) {
+      if (this.layers.scatter && _deckActivePoints.length > 0) {
         layers.push(new deck.ScatterplotLayer({
           id: 'points',
           data: _deckActivePoints,
@@ -466,7 +502,6 @@ function mapApp() {
         }));
       }
 
-      console.debug(`[render] setProps with ${layers.length} layers: ${layers.map(l => l.id).join(', ')}`);
       _deck.setProps({ layers });
 
       const dt = performance.now() - t0;
@@ -591,12 +626,28 @@ function mapApp() {
       }
     },
 
-    async doVerseSearchFor(corpus, label) {
-      this.selectedCorpus = corpus;
-      this.refInput       = label;
-      this.acValid        = true;
-      this.searchTab      = 'verse';
-      await this.doVerseSearch();
+    async doSimilarSearch(unit_id) {
+      this.searchLoading = true;
+      this.searched      = true;
+      this.searchTab     = 'verse';
+      try {
+        const params = new URLSearchParams({ limit: 50, offset: 0 });
+        for (const c of this._visibleCorpora()) params.append('corpora', c);
+        const rows = await fetch(`/api/v1/similar/${unit_id}?${params}`).then(r => {
+          if (!r.ok) throw new Error(r.statusText);
+          return r.json();
+        });
+        // Set query point to the clicked unit's UMAP position (any height)
+        this._queryPoint = _rawPoints.find(p => p.id === unit_id) || null;
+        this.results      = rows;
+        this.highlightIds = new Set(rows.map(r => r.unit_id));
+        this.render('similar-search');
+        if (rows.length > 0) this.fitResults();
+      } catch(e) {
+        console.error(e);
+      } finally {
+        this.searchLoading = false;
+      }
     },
 
     fitResults() {
@@ -779,14 +830,20 @@ function mapApp() {
     },
 
     _computeKDE() {
+      // Group leaves by tradition and corpus
       const byTrad = {};
+      const byCorpus = {};
       for (const p of _rawPoints) {
         if (p.h !== 0) continue;
-        const t = _rawMapData.traditions[p.ti];
-        if (!byTrad[t]) byTrad[t] = [];
-        byTrad[t].push(p);
+        const tradName = _rawMapData.traditions[p.ti];
+        const corpName = _rawMapData.corpora[p.ci];
+        if (!byTrad[tradName]) byTrad[tradName] = [];
+        if (!byCorpus[corpName]) byCorpus[corpName] = [];
+        byTrad[tradName].push(p);
+        byCorpus[corpName].push(p);
       }
 
+      // Global bounds for consistent grid
       let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
       for (const p of _rawPoints) {
         if (p.h !== 0) continue;
@@ -797,34 +854,45 @@ function mapApp() {
       const GRID   = 200;
       const xScale = d3.scaleLinear().domain([xMin, xMax]).range([0, GRID]);
       const yScale = d3.scaleLinear().domain([yMin, yMax]).range([0, GRID]);
-      const polygons = [];
 
-      for (const [tradName, pts] of Object.entries(byTrad)) {
-        const color   = tradColor(tradName);
+      const _kdePolygons = (pts, color, bandwidth, thresholds) => {
         const density = d3.contourDensity()
           .x(d => xScale(d.x))
           .y(d => yScale(d.y))
           .size([GRID, GRID])
-          .bandwidth(8)
-          .thresholds(4)(pts);
-
-        if (!density.length) continue;
+          .bandwidth(bandwidth)
+          .thresholds(thresholds)(pts);
+        if (!density.length) return [];
         const maxVal    = density[density.length - 1].value;
         const minThresh = maxVal * 0.08;
-
+        const result = [];
         for (const contour of density) {
           if (contour.value < minThresh) continue;
           const alpha = 0.04 + 0.12 * (contour.value / maxVal);
           for (const ring of contour.coordinates) {
-            const worldRing = ring.map(coords =>
-              coords.map(([gx, gy]) => [xScale.invert(gx), yScale.invert(gy)])
-            );
-            polygons.push({ polygon: worldRing, color, alpha });
+            result.push({
+              polygon: ring.map(coords => coords.map(([gx, gy]) => [xScale.invert(gx), yScale.invert(gy)])),
+              color,
+              alpha,
+            });
           }
         }
+        return result;
+      };
+
+      // Per-tradition KDE (broader bandwidth, more contours)
+      _tradKde = {};
+      for (const [tradName, pts] of Object.entries(byTrad)) {
+        _tradKde[tradName] = _kdePolygons(pts, tradColor(tradName), 8, 4);
       }
 
-      return polygons;
+      // Per-corpus KDE (tighter bandwidth, fewer contours — corpora can be small)
+      _corpKde = {};
+      for (const [corpName, pts] of Object.entries(byCorpus)) {
+        const ti = _rawMapData.trad_of_corpus[_rawMapData.corpora.indexOf(corpName)];
+        const color = tradColor(_rawMapData.traditions[ti]);
+        _corpKde[corpName] = _kdePolygons(pts, color, 5, 3);
+      }
     },
   };
 }

@@ -45,7 +45,7 @@
       <!-- Display toggles -->
       <div class="ls-section">Display</div>
       <label class="layer-toggle">
-        <input type="checkbox" x-model="layers.kde"          @change="render('toggle')"> Density clouds
+        <input type="checkbox" x-model="layers.scatter"      @change="render('toggle')"> Points
       </label>
       <label class="layer-toggle">
         <input type="checkbox" x-model="layers.labels"       @change="render('toggle')"> Tradition labels
@@ -66,7 +66,11 @@
       <hr class="ls-divider">
 
       <!-- Tradition → corpus → height tree -->
-      <div class="ls-section">Traditions</div>
+      <div class="ls-section" style="display:flex;align-items:center;justify-content:space-between;padding-right:1rem">
+        <span>Traditions</span>
+        <button class="ls-all-btn" @click="toggleAllTraditions()"
+          x-text="anyTraditionVisible ? 'Hide all' : 'Show all'"></button>
+      </div>
 
       <template x-for="tradName in tradNames" :key="tradName">
         <div>
@@ -79,6 +83,9 @@
             <span class="trad-swatch"
               :style="`background:${tradColor(tradName)}`"></span>
             <span class="trad-name" x-text="tradName"></span>
+            <!-- KDE toggle for this tradition -->
+            <span class="kde-chip" :class="{active: tradState[tradName]?.kde}"
+              @click.stop="toggleTradKde(tradName)" title="Density cloud">≋</span>
             <span class="trad-chevron"
               :class="{open: tradState[tradName]?.expanded}"
               @click.stop="toggleTradExpand(tradName)">▶</span>
@@ -98,6 +105,9 @@
                       :checked="tradState[tradName]?.corpora[corpName]?.visible"
                       @change.stop="toggleCorpus(tradName, corpName)">
                     <span class="corpus-name" x-text="shortName(corpName)"></span>
+                    <!-- KDE toggle for this corpus -->
+                    <span class="kde-chip" :class="{active: tradState[tradName]?.corpora[corpName]?.kde}"
+                      @click.stop="toggleCorpusKde(tradName, corpName)" title="Density cloud">≋</span>
                     <span class="corpus-chevron"
                       :class="{open: tradState[tradName]?.corpora[corpName]?.expanded}"
                       @click.stop="toggleCorpusExpand(tradName, corpName)">▶</span>
@@ -218,7 +228,7 @@
               <div class="sr-trad" x-text="`${r.tradition} · ${shortName(r.corpus)}`"></div>
               <div class="sr-text" x-text="r.text"></div>
               <button class="sidebar-btn secondary" style="margin-top:0.4rem;font-size:0.78rem;padding:0.3rem 0.5rem"
-                @click.stop="doVerseSearchFor(r.corpus, r.label)">Find similar</button>
+                @click.stop="doSimilarSearch(r.unit_id)">Find similar</button>
             </div>
           </template>
         </div>
@@ -246,6 +256,8 @@
               <div class="sr-text" x-text="r.text"></div>
               <div class="sr-sim" x-show="r.similarity != null"
                 x-text="`${(r.similarity*100).toFixed(1)}% similar`"></div>
+              <button class="sidebar-btn secondary" style="margin-top:0.4rem;font-size:0.78rem;padding:0.3rem 0.5rem"
+                @click.stop="doSimilarSearch(r.unit_id)">Find similar</button>
             </div>
           </template>
         </div>

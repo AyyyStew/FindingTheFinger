@@ -7,6 +7,7 @@ Read-only DB access and similarity search against PostgreSQL + pgvector.
 import os
 from typing import Optional
 
+import numpy as np
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
@@ -149,6 +150,80 @@ def search_by_verse(
         return []
 
     return _run_similarity(row[0], limit, offset, exclude_tradition, only_corpora)
+
+
+def search_by_unit_id(
+    unit_id: int,
+    limit: int = 10,
+    offset: int = 0,
+    exclude_tradition: Optional[str] = None,
+    only_corpora: Optional[list[str]] = None,
+) -> list[dict]:
+    """
+    Similarity search anchored on any unit, regardless of height.
+
+    h=0: fetch its embedding directly.
+    h>0: collect all leaf-descendant embeddings, compute uniform mean,
+         renormalize to unit length (correct centroid on the unit hypersphere),
+         then run similarity search.
+    """
+    with Session(get_engine()) as session:
+        # Determine height of the requested unit
+        unit_row = session.execute(text("""
+            SELECT height FROM unit WHERE id = :uid
+        """), {"uid": unit_id}).fetchone()
+
+        if not unit_row:
+            return []
+
+        height = unit_row[0]
+
+        if height == 0:
+            # Direct embedding lookup
+            row = session.execute(text("""
+                SELECT e.vector
+                FROM embedding e
+                WHERE e.unit_id    = :uid
+                  AND e.model_name = :model
+                LIMIT 1
+            """), {"uid": unit_id, "model": MODEL_NAME}).fetchone()
+            if not row:
+                return []
+            vector = row[0]
+        else:
+            # Collect all leaf descendants via recursive CTE
+            rows = session.execute(text("""
+                WITH RECURSIVE descendants AS (
+                    SELECT id FROM unit WHERE id = :uid
+                    UNION ALL
+                    SELECT u.id FROM unit u
+                    JOIN descendants d ON u.parent_id = d.id
+                )
+                SELECT e.vector
+                FROM embedding e
+                JOIN unit u ON e.unit_id = u.id
+                JOIN descendants d ON d.id = u.id
+                WHERE u.height     = 0
+                  AND e.model_name = :model
+            """), {"uid": unit_id, "model": MODEL_NAME}).fetchall()
+
+            if not rows:
+                return []
+
+            # Parse vectors (may come as string from psycopg2)
+            vecs = []
+            for (v,) in rows:
+                if isinstance(v, str):
+                    v = [float(x) for x in v.strip("[]").split(",")]
+                vecs.append(v)
+
+            # Uniform mean + renormalize onto unit hypersphere
+            mat    = np.array(vecs, dtype=np.float32)
+            mean   = mat.mean(axis=0)
+            norm   = np.linalg.norm(mean)
+            vector = (mean / norm).tolist() if norm > 0 else mean.tolist()
+
+    return _run_similarity(vector, limit, offset, exclude_tradition, only_corpora)
 
 
 # ---------------------------------------------------------------------------
