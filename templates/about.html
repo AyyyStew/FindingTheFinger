@@ -190,6 +190,10 @@
     <p>
       The <strong>map view</strong> uses <strong>UMAP</strong> (Uniform Manifold Approximation and Projection) to reduce
       the embeddings to two dimensions so you can visually explore how traditions cluster and overlap.
+      To keep the projection balanced across traditions, UMAP is fit on a <strong>stratified sample</strong> —
+      up to 100 passages drawn from every top-level division of each text (every Book of the Bible, every Raag of the
+      SGGS, every Surah of the Quran, and so on). All remaining passages are then projected into that space using
+      <strong>UMAP transform</strong>. This prevents large corpora from dominating the shape of the map.
     </p>
 
     <hr>

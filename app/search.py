@@ -13,7 +13,9 @@ from sqlalchemy.orm import Session
 
 from app.config import CORPUS_ALLOWLIST
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://ftf:ftf@localhost:5432/ftf")
+DATABASE_URL = os.environ.get("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL environment variable is not set")
 MODEL_NAME   = "nomic-embed-text-v1.5"
 QUERY_PREFIX = "search_query: "
 
@@ -31,16 +33,25 @@ def get_engine():
 # Allowlist helpers
 # ---------------------------------------------------------------------------
 
-def _allowlist_clause(alias: str = "c") -> str:
+def _allowlist_clause() -> str:
     if not CORPUS_ALLOWLIST:
         return ""
-    return f"AND {alias}.name = ANY(:allowlist)"
+    return "AND c.name = ANY(:allowlist)"
 
 
 def _allowlist_params(params: dict) -> dict:
     if CORPUS_ALLOWLIST:
         params["allowlist"] = CORPUS_ALLOWLIST
     return params
+
+
+# ---------------------------------------------------------------------------
+# LIKE helpers
+# ---------------------------------------------------------------------------
+
+def _escape_like(value: str) -> str:
+    """Escape PostgreSQL LIKE/ILIKE metacharacters using '!' as the escape char."""
+    return value.replace("!", "!!").replace("%", "!%").replace("_", "!_")
 
 
 # ---------------------------------------------------------------------------
@@ -60,11 +71,7 @@ FROM embedding e
 JOIN unit    u ON e.unit_id      = u.id
 JOIN corpus  c ON u.corpus_id    = c.id
 JOIN tradition t ON c.tradition_id = t.id
-WHERE e.model_name = :model
-  {height_filter}
-  {allowlist_clause}
-  {tradition_filter}
-  {corpus_filter}
+WHERE {where_clause}
 ORDER BY e.vector <=> CAST(:query_vec AS vector)
 LIMIT  :limit
 OFFSET :offset
@@ -88,9 +95,6 @@ def _run_similarity(
     only_corpora: Optional[list[str]] = None,
     target_height: Optional[int] = None,
 ) -> list[dict]:
-    tradition_filter = ""
-    corpus_filter    = ""
-    height_filter    = "AND u.height = 0"   # default: leaves only
     params = _allowlist_params({
         "query_vec": _vec_str(vector),
         "model":     MODEL_NAME,
@@ -98,24 +102,29 @@ def _run_similarity(
         "offset":    offset,
     })
 
+    # All values go into params as bound parameters; only developer-controlled
+    # clause strings are assembled here, making accidental user-data injection
+    # structurally impossible.
+    conditions = ["e.model_name = :model"]
+
     if target_height is not None:
-        height_filter = "AND u.height = :target_height"
+        conditions.append("u.height = :target_height")
         params["target_height"] = target_height
+    else:
+        conditions.append("u.height = 0")
+
+    if CORPUS_ALLOWLIST:
+        conditions.append("c.name = ANY(:allowlist)")
 
     if exclude_tradition:
-        tradition_filter = "AND t.name != :exclude_tradition"
+        conditions.append("t.name != :exclude_tradition")
         params["exclude_tradition"] = exclude_tradition
 
     if only_corpora:
-        corpus_filter = "AND c.name = ANY(:only_corpora)"
+        conditions.append("c.name = ANY(:only_corpora)")
         params["only_corpora"] = only_corpora
 
-    sql = text(_SIMILARITY_SQL.format(
-        height_filter=height_filter,
-        allowlist_clause=_allowlist_clause(),
-        tradition_filter=tradition_filter,
-        corpus_filter=corpus_filter,
-    ))
+    sql = text(_SIMILARITY_SQL.format(where_clause=" AND ".join(conditions)))
 
     with Session(get_engine()) as session:
         rows = session.execute(sql, params).fetchall()
@@ -260,12 +269,12 @@ def get_refs(corpus_name: str, q: str, limit: int = 20) -> list[dict]:
             FROM unit   u
             JOIN corpus c ON u.corpus_id = c.id
             WHERE c.name     = :corpus
-              AND u.label ILIKE :fuzzy
+              AND u.label ILIKE :fuzzy ESCAPE '!'
             ORDER BY u.height DESC, u.id
             LIMIT :n
         """), {
             "corpus": corpus_name,
-            "fuzzy":  f"%{q}%" if q else "%",
+            "fuzzy":  f"%{_escape_like(q)}%" if q else "%",
             "n":      limit,
         }).fetchall()
 

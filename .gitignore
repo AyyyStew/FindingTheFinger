@@ -4,3 +4,9 @@ venv/
 .claude/
 
 data/
+
+.env
+
+backups/
+
+kaggle_export/

@@ -10,6 +10,10 @@ from typing import Optional
 from fastapi import APIRouter, FastAPI, HTTPException, Query, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 from app.search import (
     get_corpora, get_refs, get_passage, get_unit_by_id, get_unit_leaves,
