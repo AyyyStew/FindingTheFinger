@@ -32,7 +32,6 @@
        ================================================================ -->
   <div class="map-left-sidebar" :class="{open: leftOpen}" x-show="!loading">
 
-    <!-- Slide toggle -->
     <button class="left-sidebar-toggle" @click="leftOpen = !leftOpen">
       <span x-text="leftOpen ? '◀ Layers' : '▶ Layers'"></span>
     </button>
@@ -41,96 +40,110 @@
 
     <div class="left-sidebar-body">
 
-      <!-- Display toggles -->
-      <div class="ls-section">Display</div>
-      <label class="layer-toggle">
-        <input type="checkbox" x-model="layers.scatter"      @change="render('toggle')"> Points
-      </label>
-      <label class="layer-toggle">
-        <input type="checkbox" x-model="layers.labels"       @change="render('toggle')"> Tradition labels
-      </label>
-      <label class="layer-toggle">
-        <input type="checkbox" x-model="layers.corpusLabels" @change="render('toggle')"> Corpus labels
-      </label>
+      <!-- Height range slider -->
+      <template x-if="globalMaxHeight > 0">
+        <div class="ls-slider-section">
+          <div class="ls-slider-labels">
+            <span>Passage</span>
+            <span>Corpus</span>
+          </div>
+          <div class="range-slider-wrap">
+            <div class="range-track-bg">
+              <div class="range-track-fill"
+                :style="`left:${sliderMin/globalMaxHeight*100}%;right:${(1-sliderMax/globalMaxHeight)*100}%`">
+              </div>
+            </div>
+            <input type="range" class="range-handle"
+              :min="0" :max="globalMaxHeight" step="1"
+              x-model.number="sliderMin"
+              @mousedown="sliderLastMoved='min'"
+              @input="onSliderMinChange()"
+              :style="`z-index:${sliderLastMoved==='min'?3:2}`">
+            <input type="range" class="range-handle"
+              :min="0" :max="globalMaxHeight" step="1"
+              x-model.number="sliderMax"
+              @mousedown="sliderLastMoved='max'"
+              @input="onSliderMaxChange()"
+              :style="`z-index:${sliderLastMoved==='max'?3:2}`">
+          </div>
+          <button class="ls-apply-btn" :class="{pending: sliderPending}" @click="applySlider()">
+            Apply to all
+          </button>
+        </div>
+      </template>
 
       <hr class="ls-divider">
 
-      <!-- Run info -->
-      <div class="run-info" x-show="runMeta">
-        <div x-text="runMeta?.label || 'Projection'"></div>
-        <div x-text="runMeta?.created_at ? new Date(runMeta.created_at).toLocaleDateString() : ''"></div>
-        <div x-text="`${totalPoints.toLocaleString()} leaves`"></div>
+      <!-- Run info + global controls -->
+      <div class="ls-meta-row">
+        <div class="run-info" x-show="runMeta">
+          <span x-text="runMeta?.created_at ? new Date(runMeta.created_at).toLocaleDateString() : ''"></span>
+          <span x-text="`· ${totalPoints.toLocaleString()} leaves`"></span>
+        </div>
+        <div class="ls-global-btns">
+          <button class="ls-pill-btn" @click="showAll()">Show all</button>
+          <button class="ls-pill-btn" @click="hideAll()">Hide all</button>
+        </div>
       </div>
 
       <hr class="ls-divider">
 
-      <!-- Tradition → corpus → height tree -->
-      <div class="ls-section" style="display:flex;align-items:center;justify-content:space-between;padding-right:1rem">
-        <span>Traditions</span>
-        <button class="ls-all-btn" @click="toggleAllTraditions()"
-          x-text="anyTraditionVisible ? 'Hide all' : 'Show all'"></button>
-      </div>
-
+      <!-- Corpus tree, grouped by tradition -->
       <template x-for="tradName in tradNames" :key="tradName">
-        <div>
+        <div class="trad-section">
 
-          <!-- Tradition row -->
-          <div class="trad-row">
-            <input class="trad-checkbox" type="checkbox"
-              :checked="tradState[tradName]?.visible"
-              @change.stop="toggleTradition(tradName)">
-            <span class="trad-swatch"
-              :style="`background:${tradColor(tradName)}`"></span>
-            <span class="trad-name" x-text="tradName"></span>
-            <!-- KDE toggle for this tradition -->
-            <span class="kde-chip" :class="{active: tradState[tradName]?.kde}"
-              @click.stop="toggleTradKde(tradName)" title="Density cloud">≋</span>
-            <span class="trad-chevron"
-              :class="{open: tradState[tradName]?.expanded}"
-              @click.stop="toggleTradExpand(tradName)">▶</span>
+          <!-- Tradition header — label only, no controls -->
+          <div class="trad-label-row">
+            <span class="trad-dot" :style="`background:${tradColor(tradName)}`"></span>
+            <span class="trad-label-text" x-text="tradName"></span>
           </div>
 
-          <!-- Expanded: corpus list -->
-          <template x-if="tradState[tradName]?.expanded">
-            <div class="corpus-block">
-              <template
-                x-for="corpName in Object.keys(tradState[tradName]?.corpora || {})"
-                :key="corpName">
-                <div>
+          <!-- Corpus list (always expanded) -->
+          <div class="corpus-list">
+            <template
+              x-for="corpName in Object.keys(tradState[tradName]?.corpora || {})"
+              :key="corpName">
+              <div class="corpus-card">
 
-                  <!-- Corpus row -->
-                  <div class="corpus-row">
-                    <input class="corpus-checkbox" type="checkbox"
-                      :checked="tradState[tradName]?.corpora[corpName]?.visible"
-                      @change.stop="toggleCorpus(tradName, corpName)">
-                    <span class="corpus-name" x-text="shortName(corpName)"></span>
-                    <!-- KDE toggle for this corpus -->
-                    <span class="kde-chip" :class="{active: tradState[tradName]?.corpora[corpName]?.kde}"
-                      @click.stop="toggleCorpusKde(tradName, corpName)" title="Density cloud">≋</span>
-                    <span class="corpus-chevron"
-                      :class="{open: tradState[tradName]?.corpora[corpName]?.expanded}"
-                      @click.stop="toggleCorpusExpand(tradName, corpName)">▶</span>
+                <!-- Corpus controls -->
+                <div class="corpus-ctrl-row">
+                  <span class="corpus-label" x-text="shortName(corpName)"></span>
+                  <div class="corpus-btns">
+                    <button class="ctrl-btn"
+                      :class="{active: tradState[tradName]?.corpora[corpName]?.scatter}"
+                      @click.stop="toggleCorpusScatter(tradName, corpName)"
+                      title="Scatter points">⬤</button>
+                    <button class="ctrl-btn"
+                      :class="{active: tradState[tradName]?.corpora[corpName]?.labels}"
+                      @click.stop="toggleCorpusLabels(tradName, corpName)"
+                      title="Map label">A</button>
+                    <button class="ctrl-btn"
+                      :class="{active: tradState[tradName]?.corpora[corpName]?.kde}"
+                      @click.stop="toggleCorpusKde(tradName, corpName)"
+                      title="Density cloud">≋</button>
+                    <button class="ctrl-btn solo-btn"
+                      :class="{active: isSoloed(tradName, corpName)}"
+                      @click.stop="toggleSolo(tradName, corpName)">solo</button>
                   </div>
-
-                  <!-- Expanded: height chips -->
-                  <template x-if="tradState[tradName]?.corpora[corpName]?.expanded">
-                    <div class="height-toggles">
-                      <template
-                        x-for="(enabled, h) in tradState[tradName]?.corpora[corpName]?.heights || {}"
-                        :key="h">
-                        <label class="height-chip" :class="{active: enabled}">
-                          <input type="checkbox" :checked="enabled"
-                            @change.stop="toggleHeight(tradName, corpName, parseInt(h))">
-                          <span x-text="levelName(mapData?.corpora?.indexOf(corpName), parseInt(h))"></span>
-                        </label>
-                      </template>
-                    </div>
-                  </template>
-
                 </div>
-              </template>
-            </div>
-          </template>
+
+                <!-- Height chips — only shown when corpus has multiple levels -->
+                <div x-show="Object.keys(tradState[tradName]?.corpora[corpName]?.heights || {}).length > 1"
+                  class="height-chips">
+                  <template
+                    x-for="(enabled, h) in (tradState[tradName]?.corpora[corpName]?.heights || {})"
+                    :key="h">
+                    <label class="height-chip" :class="{active: enabled}">
+                      <input type="checkbox" :checked="enabled"
+                        @change.stop="toggleHeight(tradName, corpName, parseInt(h))">
+                      <span x-text="levelName(mapData?.corpora?.indexOf(corpName), parseInt(h))"></span>
+                    </label>
+                  </template>
+                </div>
+
+              </div>
+            </template>
+          </div>
 
         </div>
       </template>

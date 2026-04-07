@@ -74,170 +74,253 @@ body { overflow: hidden; }
   padding: 0.5rem 0;
 }
 
-/* Section label inside left sidebar */
-.ls-section {
-  padding: 0.5rem 1rem 0.25rem;
-  font-size: 0.68rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--muted);
-}
-
 .ls-divider {
   border: none;
   border-top: 1px solid var(--border);
   margin: 0.4rem 0;
 }
 
-/* Simple layer toggle row */
-.layer-toggle {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.28rem 1rem;
-  cursor: pointer;
-  color: var(--text);
-  font-size: 0.85rem;
-  transition: color 0.12s;
-  user-select: none;
+/* ---- Height range slider ---- */
+.ls-slider-section {
+  padding: 0.6rem 1rem 0.5rem;
 }
 
-.layer-toggle:hover { color: var(--accent); }
+.ls-slider-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.68rem;
+  color: var(--muted);
+  margin-bottom: 0.6rem;
+}
 
-.layer-toggle input[type="checkbox"] {
-  accent-color: var(--accent);
-  width: 14px;
-  height: 14px;
+.range-slider-wrap {
+  position: relative;
+  height: 28px;
+  margin-bottom: 0.5rem;
+}
+
+.range-track-bg {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 4px;
+  transform: translateY(-50%);
+  background: var(--surface2);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.range-track-fill {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+}
+
+.range-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  appearance: none;
+  -webkit-appearance: none;
+  pointer-events: none;
+}
+
+.range-handle::-webkit-slider-runnable-track {
+  background: transparent;
+  height: 4px;
+}
+
+.range-handle::-moz-range-track {
+  background: transparent;
+  height: 4px;
+  border: none;
+}
+
+.range-handle::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid #fff;
   cursor: pointer;
+  pointer-events: all;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+}
+
+.range-handle::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid #fff;
+  cursor: pointer;
+  pointer-events: all;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+}
+
+.ls-apply-btn {
+  width: 100%;
+  padding: 0.3rem 0.5rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ls-apply-btn:hover { border-color: var(--accent); color: var(--accent); }
+.ls-apply-btn.pending {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(108,140,255,0.08);
+}
+
+/* ---- Meta row (run info + global controls) ---- */
+.ls-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.3rem 1rem;
+  gap: 0.5rem;
+}
+
+.run-info {
+  font-size: 0.7rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.ls-global-btns {
+  display: flex;
+  gap: 0.3rem;
   flex-shrink: 0;
 }
 
-/* Run info */
-.run-info {
-  padding: 0.4rem 1rem 0.6rem;
-  font-size: 0.72rem;
+.ls-pill-btn {
+  font-size: 0.7rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 20px;
   color: var(--muted);
-  line-height: 1.6;
+  padding: 0.2rem 0.5rem;
+  cursor: pointer;
+  transition: all 0.12s;
 }
 
-/* ---- Tradition tree ---- */
-.trad-row {
+.ls-pill-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ---- Tradition / corpus tree ---- */
+.trad-section { margin-bottom: 0.2rem; }
+
+.trad-label-row {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.3rem 1rem;
-  cursor: pointer;
-  user-select: none;
+  gap: 0.45rem;
+  padding: 0.35rem 1rem 0.15rem;
 }
 
-.trad-row:hover { background: rgba(255,255,255,0.04); }
-
-.trad-swatch {
-  width: 10px;
-  height: 10px;
+.trad-dot {
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   flex-shrink: 0;
 }
 
-.trad-name {
-  flex: 1;
-  font-size: 0.84rem;
-  color: var(--text);
-  font-weight: 600;
-}
-
-.trad-chevron {
-  font-size: 0.7rem;
+.trad-label-text {
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
   color: var(--muted);
-  transition: transform 0.15s;
-  margin-left: auto;
 }
 
-.trad-chevron.open { transform: rotate(90deg); }
+.corpus-list {
+  padding: 0 0.6rem 0.25rem 1.4rem;
+}
 
-.trad-checkbox {
-  accent-color: var(--accent);
-  width: 14px;
-  height: 14px;
-  cursor: pointer;
+.corpus-card {
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  margin-bottom: 0.3rem;
+  background: rgba(255,255,255,0.02);
+  overflow: hidden;
+}
+
+.corpus-ctrl-row {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.35rem 0.45rem;
+}
+
+.corpus-label {
+  flex: 1;
+  font-size: 0.79rem;
+  color: var(--text);
+  font-weight: 500;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.corpus-btns {
+  display: flex;
+  gap: 0.2rem;
   flex-shrink: 0;
 }
 
-/* "Hide all / Show all" button */
-.ls-all-btn {
-  font-size: 0.7rem;
+.ctrl-btn {
+  padding: 0.16rem 0.32rem;
   background: transparent;
   border: 1px solid var(--border);
   border-radius: 5px;
   color: var(--muted);
-  padding: 0.15rem 0.45rem;
-  cursor: pointer;
-  transition: all 0.12s;
-}
-.ls-all-btn:hover { border-color: var(--accent); color: var(--accent); }
-
-/* KDE chip — small icon button on tradition/corpus rows */
-.kde-chip {
   font-size: 0.8rem;
-  color: var(--muted);
-  padding: 0.1rem 0.3rem;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.12s;
-  flex-shrink: 0;
   line-height: 1;
-  border: 1px solid transparent;
-}
-.kde-chip:hover { color: var(--text); border-color: var(--border); }
-.kde-chip.active { color: var(--accent); border-color: var(--accent); }
-
-/* Corpus block (inside expanded tradition) */
-.corpus-block {
-  padding: 0 0 0.25rem 1rem;
-  border-left: 2px solid var(--border);
-  margin: 0 0 0.25rem 1.5rem;
-}
-
-.corpus-row {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.22rem 0.5rem;
   cursor: pointer;
-  user-select: none;
+  transition: all 0.12s;
 }
 
-.corpus-row:hover { background: rgba(255,255,255,0.03); }
+.ctrl-btn:hover { border-color: var(--accent); color: var(--accent); }
+.ctrl-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
-.corpus-name {
-  flex: 1;
-  font-size: 0.8rem;
-  color: var(--text);
-}
-
-.corpus-chevron {
-  font-size: 0.65rem;
+.solo-btn {
+  padding: 0.16rem 0.38rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 5px;
   color: var(--muted);
-  transition: transform 0.15s;
-}
-
-.corpus-chevron.open { transform: rotate(90deg); }
-
-.corpus-checkbox {
-  accent-color: var(--accent);
-  width: 13px;
-  height: 13px;
+  font-size: 0.68rem;
+  line-height: 1;
   cursor: pointer;
-  flex-shrink: 0;
+  transition: all 0.12s;
 }
 
-/* Height toggles (inside expanded corpus) */
-.height-toggles {
+.solo-btn:hover { border-color: #f5a623; color: #f5a623; }
+.solo-btn.active { background: #f5a623; border-color: #f5a623; color: #000; font-weight: 700; }
+
+/* Height chips (below corpus controls, multi-level only) */
+.height-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.3rem;
-  padding: 0.3rem 0.5rem 0.3rem 1.5rem;
+  gap: 0.25rem;
+  padding: 0 0.45rem 0.4rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.3rem;
 }
 
 .height-chip {
@@ -247,8 +330,8 @@ body { overflow: hidden; }
   background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: 20px;
-  padding: 0.18rem 0.55rem;
-  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.72rem;
   color: var(--muted);
   cursor: pointer;
   user-select: none;

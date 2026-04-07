@@ -8,16 +8,15 @@ export function render(source = 'unknown') {
   const t0 = performance.now()
   const data = store.rawMapData
   const zoom = store.zoom
+  const soloActive = !!this.soloCorpus
   const layers = []
 
-  // KDE density clouds
+  // ── KDE density clouds (per-corpus, respects solo) ────────────────────────
   {
     const kdePolygons = []
     for (const [tradName, ts] of Object.entries(this.tradState)) {
-      if (ts.kde && store.tradKde[tradName]) {
-        for (const p of store.tradKde[tradName]) kdePolygons.push(p)
-      }
       for (const [corpName, cs] of Object.entries(ts.corpora)) {
+        if (soloActive && !this.isSoloed(tradName, corpName)) continue
         if (cs.kde && store.corpKde[corpName]) {
           for (const p of store.corpKde[corpName]) kdePolygons.push(p)
         }
@@ -39,8 +38,8 @@ export function render(source = 'unknown') {
     }
   }
 
-  // Scatter plot
-  if (this.layers.scatter && store.deckActivePoints.length > 0) {
+  // ── Scatter plot (_recomputeActive already handles scatter + solo filtering) ─
+  if (store.deckActivePoints.length > 0) {
     layers.push(new deck.ScatterplotLayer({
       id: 'points',
       data: store.deckActivePoints,
@@ -66,16 +65,29 @@ export function render(source = 'unknown') {
     }))
   }
 
-  // Labels (tradition + corpus merged into one TextLayer)
-  if (this.layers.labels || this.layers.corpusLabels) {
+  // ── Labels ────────────────────────────────────────────────────────────────
+  {
     const labelData = []
-    if (this.layers.corpusLabels) {
-      for (const d of this._corpusCentroids(data)) labelData.push({ ...d, size: 11, alpha: 175 })
-    }
-    if (this.layers.labels && zoom >= store.initialZoom - 1) {
+
+    // Tradition centroid labels — always on when zoomed in enough
+    if (zoom >= store.initialZoom - 1) {
       for (const d of this._traditionCentroids(data))
         labelData.push({ ...d, size: 14, alpha: 210 })
     }
+
+    // Corpus centroid labels — per-corpus toggle, respects solo
+    const labeledCorpora = new Set()
+    for (const [tradName, ts] of Object.entries(this.tradState)) {
+      for (const [corpName, cs] of Object.entries(ts.corpora)) {
+        if (soloActive && !this.isSoloed(tradName, corpName)) continue
+        if (cs.labels) labeledCorpora.add(corpName)
+      }
+    }
+    if (labeledCorpora.size > 0) {
+      for (const d of this._corpusCentroids(data, labeledCorpora))
+        labelData.push({ ...d, size: 11, alpha: 175 })
+    }
+
     if (labelData.length > 0) {
       layers.push(new deck.TextLayer({
         id: 'labels',
@@ -93,14 +105,14 @@ export function render(source = 'unknown') {
         getTextAnchor: 'middle',
         getAlignmentBaseline: 'center',
         updateTriggers: {
-          getColor: [this.layers.labels, this.layers.corpusLabels],
-          getSize: [this.layers.labels, this.layers.corpusLabels],
+          getColor: [zoom, labeledCorpora.size],
+          getSize: [zoom, labeledCorpora.size],
         },
       }))
     }
   }
 
-  // Search constellation: lines from query point to each result
+  // ── Search constellation ──────────────────────────────────────────────────
   if (this._queryPoint && this.results.length > 0) {
     const lineData = this.results
       .map(r => ({ src: this._queryPoint, tgt: store.pointById.get(r.unit_id) }))
@@ -162,11 +174,13 @@ export function _traditionCentroids(data) {
   }))
 }
 
-export function _corpusCentroids(data) {
+// filteredCorpora: Set<corpName> | null — if provided, only include those corpora
+export function _corpusCentroids(data, filteredCorpora = null) {
   const byCorpus = {}
   for (const p of store.deckActivePoints) {
     if (p.h !== 0) continue
     const c = data.corpora[p.ci]
+    if (filteredCorpora && !filteredCorpora.has(c)) continue
     if (!byCorpus[c]) byCorpus[c] = { xs: [], ys: [], ti: p.ti }
     byCorpus[c].xs.push(p.x)
     byCorpus[c].ys.push(p.y)

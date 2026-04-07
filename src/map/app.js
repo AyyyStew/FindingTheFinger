@@ -1,10 +1,11 @@
-// Map page Alpine component — assembles state and imports methods from focused modules.
 import { tradColor, shortName } from '../shared/constants.js'
 import {
   _buildTradState, _recomputeActive,
-  toggleAllTraditions, toggleTradition, toggleTradKde, toggleCorpusKde,
-  toggleCorpus, toggleHeight, toggleTradExpand, toggleCorpusExpand,
-  tradFullyVisible, levelName,
+  showAll, hideAll,
+  toggleCorpusScatter, toggleCorpusLabels, toggleCorpusKde,
+  toggleHeight, toggleSolo, isSoloed,
+  onSliderMinChange, onSliderMaxChange, applySlider,
+  levelName,
 } from './filters.js'
 import { render, _traditionCentroids, _corpusCentroids } from './layers.js'
 import { _computeKDE } from './kde.js'
@@ -24,16 +25,23 @@ export function mapApp() {
     leftOpen: false,
     sidebarOpen: false,
 
-    // Map data (Alpine-proxied copies for UI bindings)
+    // Map data
     mapData: null,
     runMeta: null,
     totalPoints: 0,
 
-    // Display toggles
-    layers: { scatter: true, labels: true, corpusLabels: false },
-
     // Tradition/corpus/height filter tree
     tradState: {},
+
+    // Solo state
+    soloCorpus: null,
+
+    // Height range slider
+    sliderMin: 0,
+    sliderMax: 0,
+    sliderPending: false,
+    sliderLastMoved: 'max',
+    globalMaxHeight: 0,
 
     // Search state
     searchTab: 'history',
@@ -61,41 +69,39 @@ export function mapApp() {
     _renderCount: 0,
     _lastRenderMs: 0,
 
-    // Computed — must stay as getters here; spreading loses the getter descriptor
-    get anyTraditionVisible() {
-      return Object.values(this.tradState).some(ts => ts.visible)
-    },
     get tradNames() {
       return Object.keys(this.tradState).sort()
     },
 
-    // Shared helpers assigned as component methods so Alpine templates can call them
+    // Shared helpers
     tradColor,
     shortName,
 
-    // Filter methods (filters.js)
+    // Filter methods
     _buildTradState,
     _recomputeActive,
-    toggleAllTraditions,
-    toggleTradition,
-    toggleTradKde,
+    showAll,
+    hideAll,
+    toggleCorpusScatter,
+    toggleCorpusLabels,
     toggleCorpusKde,
-    toggleCorpus,
     toggleHeight,
-    toggleTradExpand,
-    toggleCorpusExpand,
-    tradFullyVisible,
+    toggleSolo,
+    isSoloed,
+    onSliderMinChange,
+    onSliderMaxChange,
+    applySlider,
     levelName,
 
-    // Render / layer methods (layers.js)
+    // Render / layer methods
     render,
     _traditionCentroids,
     _corpusCentroids,
 
-    // KDE computation (kde.js)
+    // KDE
     _computeKDE,
 
-    // deck.gl init + interaction (deck-init.js)
+    // deck.gl
     _initDeck,
     _onHover,
     _onClick,
@@ -106,13 +112,13 @@ export function mapApp() {
     selectResult,
     clearResults,
 
-    // Search (search.js)
+    // Search
     _visibleCorpora,
     doPassageSearch,
     doTextSearch,
     doSimilarSearch,
 
-    // Autocomplete (autocomplete.js)
+    // Autocomplete
     _acFetch,
     acFocus,
     acInput,
@@ -132,8 +138,6 @@ export function mapApp() {
         this.loadMsg = 'Loading map data…'
         const data = await fetch('/api/v1/map').then(r => r.json())
 
-        // Capture raw data BEFORE assigning to Alpine — once Alpine proxies it,
-        // arrays passed to deck.gl layers must come from store, not from this.*
         store.rawMapData = data
         store.rawPoints = data.points
 
@@ -148,6 +152,13 @@ export function mapApp() {
         this.mapData = data
         this.runMeta = data.run
         this.totalPoints = store.rawPoints.filter(p => p.h === 0).length
+
+        // Compute global max height for the slider
+        const allHeights = Object.values(data.corpus_levels)
+          .flatMap(levels => Object.keys(levels).map(Number))
+        this.globalMaxHeight = allHeights.length > 0 ? Math.max(...allHeights) : 0
+        this.sliderMin = 0
+        this.sliderMax = this.globalMaxHeight
 
         this._buildTradState(data)
         this._recomputeActive()
