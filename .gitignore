@@ -10,3 +10,6 @@ data/
 backups/
 
 kaggle_export/
+
+node_modules/
+static/dist/

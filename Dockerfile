@@ -1,8 +1,16 @@
-FROM python:3.13-slim
+# Stage 1: build frontend assets
+FROM node:20-slim AS frontend
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY vite.config.js eslint.config.js ./
+COPY src/ ./src/
+RUN npm run build
 
+# Stage 2: production
+FROM python:3.13-slim
 WORKDIR /app
 
-# System deps for sentence-transformers
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
@@ -11,6 +19,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
+COPY --from=frontend /app/static/dist ./static/dist
 
 EXPOSE 8000
 

@@ -3,14 +3,13 @@
 {% block title %}Map — Finding The Finger{% endblock %}
 
 {% block head %}
-<link  rel="stylesheet" href="/static/css/map.css">
+<link rel="stylesheet" href="/static/css/map.css">
 <script src="https://unpkg.com/deck.gl@9.0.0/dist.min.js"></script>
 <script src="https://d3js.org/d3.v7.min.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 {% endblock %}
 
 {% block content %}
-<div id="map-root" x-data="mapApp()" x-init="init()" x-cloak>
+<div id="map-root" x-data="mapApp" x-cloak>
 
   <!-- Loading overlay -->
   <div id="map-loading" x-show="loading">
@@ -300,5 +299,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/map.js"></script>
+<script type="module" src="/static/dist/map.js"></script>
 {% endblock %}
