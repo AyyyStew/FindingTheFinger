@@ -11,14 +11,23 @@ export function render(source = 'unknown') {
   const soloActive = !!this.soloCorpus
   const layers = []
 
-  // ── KDE density clouds (per-corpus, respects solo) ────────────────────────
+  // ── KDE density clouds (per corpus+level, respects solo) ──────────────────
   {
     const kdePolygons = []
     for (const [tradName, ts] of Object.entries(this.tradState)) {
       for (const [corpName, cs] of Object.entries(ts.corpora)) {
-        if (soloActive && !this.isSoloed(tradName, corpName)) continue
-        if (cs.kde && store.corpKde[corpName]) {
-          for (const p of store.corpKde[corpName]) kdePolygons.push(p)
+        if (soloActive) {
+          const isSoloedCorpus =
+            this.soloCorpus.tradName === tradName &&
+            this.soloCorpus.corpName === corpName
+          if (!isSoloedCorpus) continue
+        }
+        for (const [hStr, ls] of Object.entries(cs.levels)) {
+          const h = parseInt(hStr)
+          if (soloActive && this.soloCorpus.height !== null && this.soloCorpus.height !== h) continue
+          if (!ls.kde) continue
+          const polys = store.corpKde[corpName]?.[h]
+          if (polys) for (const p of polys) kdePolygons.push(p)
         }
       }
     }
@@ -38,7 +47,7 @@ export function render(source = 'unknown') {
     }
   }
 
-  // ── Scatter plot (_recomputeActive already handles scatter + solo filtering) ─
+  // ── Scatter plot (_recomputeActive handles all filtering) ──────────────────
   if (store.deckActivePoints.length > 0) {
     layers.push(new deck.ScatterplotLayer({
       id: 'points',
@@ -69,22 +78,34 @@ export function render(source = 'unknown') {
   {
     const labelData = []
 
-    // Tradition centroid labels — always on when zoomed in enough
+    // Tradition centroid labels — computed from all active points
     if (zoom >= store.initialZoom - 1) {
       for (const d of this._traditionCentroids(data))
         labelData.push({ ...d, size: 14, alpha: 210 })
     }
 
-    // Corpus centroid labels — per-corpus toggle, respects solo
-    const labeledCorpora = new Set()
+    // Corpus/level centroid labels — per level toggle, respects solo
+    const labeledLevels = [] // [{corpName, h}]
     for (const [tradName, ts] of Object.entries(this.tradState)) {
       for (const [corpName, cs] of Object.entries(ts.corpora)) {
-        if (soloActive && !this.isSoloed(tradName, corpName)) continue
-        if (cs.labels) labeledCorpora.add(corpName)
+        if (soloActive) {
+          const isSoloedCorpus =
+            this.soloCorpus.tradName === tradName &&
+            this.soloCorpus.corpName === corpName
+          if (!isSoloedCorpus) continue
+        }
+        for (const [hStr, ls] of Object.entries(cs.levels)) {
+          const h = parseInt(hStr)
+          if (soloActive && this.soloCorpus.height !== null && this.soloCorpus.height !== h) continue
+          if (ls.labels) labeledLevels.push({ corpName, h })
+        }
       }
     }
-    if (labeledCorpora.size > 0) {
-      for (const d of this._corpusCentroids(data, labeledCorpora))
+    console.log('[render labels] labeledLevels=', JSON.stringify(labeledLevels))
+    if (labeledLevels.length > 0) {
+      const centroids = this._corpusCentroids(data, labeledLevels)
+      console.log('[render labels] centroids=', JSON.stringify(centroids))
+      for (const d of centroids)
         labelData.push({ ...d, size: 11, alpha: 175 })
     }
 
@@ -101,12 +122,13 @@ export function render(source = 'unknown') {
         background: true,
         getBackgroundColor: [15, 17, 23, 170],
         backgroundPadding: [3, 2],
+        characterSet: 'auto',
         fontFamily: "'Segoe UI', system-ui, sans-serif",
         getTextAnchor: 'middle',
         getAlignmentBaseline: 'center',
         updateTriggers: {
-          getColor: [zoom, labeledCorpora.size],
-          getSize: [zoom, labeledCorpora.size],
+          getColor: [zoom, labeledLevels.length],
+          getSize: [zoom, labeledLevels.length],
         },
       }))
     }
@@ -157,10 +179,10 @@ export function render(source = 'unknown') {
   )
 }
 
+// Tradition centroids — computed from all currently active points
 export function _traditionCentroids(data) {
   const byTrad = {}
   for (const p of store.deckActivePoints) {
-    if (p.h !== 0) continue
     const t = data.traditions[p.ti]
     if (!byTrad[t]) byTrad[t] = { xs: [], ys: [] }
     byTrad[t].xs.push(p.x)
@@ -174,21 +196,22 @@ export function _traditionCentroids(data) {
   }))
 }
 
-// filteredCorpora: Set<corpName> | null — if provided, only include those corpora
-export function _corpusCentroids(data, filteredCorpora = null) {
-  const byCorpus = {}
-  for (const p of store.deckActivePoints) {
-    if (p.h !== 0) continue
-    const c = data.corpora[p.ci]
-    if (filteredCorpora && !filteredCorpora.has(c)) continue
-    if (!byCorpus[c]) byCorpus[c] = { xs: [], ys: [], ti: p.ti }
-    byCorpus[c].xs.push(p.x)
-    byCorpus[c].ys.push(p.y)
+// labeledLevels: [{corpName, h}] — return one label per point at those levels.
+// Each point already has its own label (book name, chapter name, etc.) and position.
+export function _corpusCentroids(data, labeledLevels) {
+  const wanted = new Set(
+    labeledLevels.filter(({ h }) => h > 0).map(({ corpName, h }) => `${corpName}__${h}`)
+  )
+  const results = []
+  for (const p of store.rawPoints) {
+    const corpName = data.corpora[p.ci]
+    if (!wanted.has(`${corpName}__${p.h}`)) continue
+    results.push({
+      name: p.label,
+      color: tradColor(data.traditions[p.ti]),
+      x: p.x,
+      y: p.y,
+    })
   }
-  return Object.entries(byCorpus).map(([name, { xs, ys, ti }]) => ({
-    name: this.shortName(name),
-    color: tradColor(data.traditions[ti]),
-    x: xs.reduce((a, b) => a + b, 0) / xs.length,
-    y: ys.reduce((a, b) => a + b, 0) / ys.length,
-  }))
+  return results
 }

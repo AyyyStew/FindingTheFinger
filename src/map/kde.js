@@ -1,5 +1,6 @@
 // KDE density cloud computation using D3 contour density.
 // d3 is loaded as a CDN global (window.d3) — not bundled.
+// store.corpKde shape: { [corpName]: { [h]: polygons[] } }
 import { store } from './store.js'
 import { tradColor } from '../shared/constants.js'
 
@@ -32,21 +33,9 @@ function kdePolygons(pts, color, bandwidth, thresholds, xScale, yScale) {
 }
 
 export function _computeKDE() {
-  const byTrad = {}
-  const byCorpus = {}
-  for (const p of store.rawPoints) {
-    if (p.h !== 0) continue
-    const tradName = store.rawMapData.traditions[p.ti]
-    const corpName = store.rawMapData.corpora[p.ci]
-    if (!byTrad[tradName]) byTrad[tradName] = []
-    if (!byCorpus[corpName]) byCorpus[corpName] = []
-    byTrad[tradName].push(p)
-    byCorpus[corpName].push(p)
-  }
-
+  // Build global x/y extent from all points
   let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity
   for (const p of store.rawPoints) {
-    if (p.h !== 0) continue
     if (p.x < xMin) xMin = p.x; if (p.x > xMax) xMax = p.x
     if (p.y < yMin) yMin = p.y; if (p.y > yMax) yMax = p.y
   }
@@ -55,15 +44,26 @@ export function _computeKDE() {
   const xScale = d3.scaleLinear().domain([xMin, xMax]).range([0, GRID])
   const yScale = d3.scaleLinear().domain([yMin, yMax]).range([0, GRID])
 
-  store.tradKde = {}
-  for (const [tradName, pts] of Object.entries(byTrad)) {
-    store.tradKde[tradName] = kdePolygons(pts, tradColor(tradName), 8, 4, xScale, yScale)
+  // Group points by (corpName, h)
+  const byCorpusHeight = {}
+  for (const p of store.rawPoints) {
+    const corpName = store.rawMapData.corpora[p.ci]
+    if (!byCorpusHeight[corpName]) byCorpusHeight[corpName] = {}
+    if (!byCorpusHeight[corpName][p.h]) byCorpusHeight[corpName][p.h] = []
+    byCorpusHeight[corpName][p.h].push(p)
   }
 
   store.corpKde = {}
-  for (const [corpName, pts] of Object.entries(byCorpus)) {
+  for (const [corpName, byH] of Object.entries(byCorpusHeight)) {
     const ti = store.rawMapData.trad_of_corpus[store.rawMapData.corpora.indexOf(corpName)]
     const color = tradColor(store.rawMapData.traditions[ti])
-    store.corpKde[corpName] = kdePolygons(pts, color, 5, 3, xScale, yScale)
+    store.corpKde[corpName] = {}
+    for (const [hStr, pts] of Object.entries(byH)) {
+      const h = parseInt(hStr)
+      // Use tighter bandwidth for leaf-level (verse), looser for higher levels
+      const bw = h === 0 ? 5 : 8
+      const thresh = h === 0 ? 3 : 4
+      store.corpKde[corpName][h] = kdePolygons(pts, color, bw, thresh, xScale, yScale)
+    }
   }
 }

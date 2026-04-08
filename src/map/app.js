@@ -1,11 +1,15 @@
 import { tradColor, shortName } from '../shared/constants.js'
 import {
   _buildTradState, _recomputeActive,
-  showAll, hideAll,
-  toggleCorpusScatter, toggleCorpusLabels, toggleCorpusKde,
-  toggleHeight, toggleSolo, isSoloed,
+  showAll, hideAll, toggleAllPoints, toggleAllLabels, toggleAllKde,
+  toggleTradScatter, toggleTradLabels, toggleTradKde,
+  toggleTradCollapse, toggleCorpusCollapse,
+  corpusMasterScatterActive, corpusMasterLabelsActive, corpusMasterKdeActive,
+  toggleCorpusMasterScatter, toggleCorpusMasterLabels, toggleCorpusMasterKde,
+  toggleLevelScatter, toggleLevelLabels, toggleLevelKde,
+  toggleSolo, isSoloed,
   onSliderMinChange, onSliderMaxChange, applySlider,
-  levelName,
+  sliderPreview, levelName,
 } from './filters.js'
 import { render, _traditionCentroids, _corpusCentroids } from './layers.js'
 import { _computeKDE } from './kde.js'
@@ -30,10 +34,10 @@ export function mapApp() {
     runMeta: null,
     totalPoints: 0,
 
-    // Tradition/corpus/height filter tree
+    // Tradition/corpus/level filter tree
     tradState: {},
 
-    // Solo state
+    // Solo state: { tradName, corpName, height: null | number } | null
     soloCorpus: null,
 
     // Height range slider
@@ -82,15 +86,29 @@ export function mapApp() {
     _recomputeActive,
     showAll,
     hideAll,
-    toggleCorpusScatter,
-    toggleCorpusLabels,
-    toggleCorpusKde,
-    toggleHeight,
+    toggleAllPoints,
+    toggleAllLabels,
+    toggleAllKde,
+    toggleTradScatter,
+    toggleTradLabels,
+    toggleTradKde,
+    toggleTradCollapse,
+    toggleCorpusCollapse,
+    corpusMasterScatterActive,
+    corpusMasterLabelsActive,
+    corpusMasterKdeActive,
+    toggleCorpusMasterScatter,
+    toggleCorpusMasterLabels,
+    toggleCorpusMasterKde,
+    toggleLevelScatter,
+    toggleLevelLabels,
+    toggleLevelKde,
     toggleSolo,
     isSoloed,
     onSliderMinChange,
     onSliderMaxChange,
     applySlider,
+    sliderPreview,
     levelName,
 
     // Render / layer methods
@@ -126,6 +144,8 @@ export function mapApp() {
     acSelect,
 
     async init() {
+      console.log('[init] toggleTradScatter on this?', typeof this.toggleTradScatter)
+      console.log('[init] toggleCorpusMasterScatter on this?', typeof this.toggleCorpusMasterScatter)
       try {
         const data = await fetch('/api/v1/corpora').then(r => r.json())
         this.corpora = data

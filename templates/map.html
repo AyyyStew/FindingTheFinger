@@ -40,6 +40,17 @@
 
     <div class="left-sidebar-body">
 
+      <!-- Global helpers -->
+      <div class="ls-helpers-row">
+        <button class="ls-helper-btn" @click="toggleAllPoints()" title="Toggle all points">⬤ pts</button>
+        <button class="ls-helper-btn" @click="toggleAllLabels()" title="Toggle all labels">A labels</button>
+        <button class="ls-helper-btn" @click="toggleAllKde()" title="Toggle all density clouds">≋ cloud</button>
+        <button class="ls-helper-btn" @click="showAll()">show all</button>
+        <button class="ls-helper-btn" @click="hideAll()">hide all</button>
+      </div>
+
+      <hr class="ls-divider">
+
       <!-- Height range slider -->
       <template x-if="globalMaxHeight > 0">
         <div class="ls-slider-section">
@@ -66,6 +77,17 @@
               @input="onSliderMaxChange()"
               :style="`z-index:${sliderLastMoved==='max'?3:2}`">
           </div>
+
+          <!-- Slider preview — live, shows per-tradition level names -->
+          <div class="slider-preview">
+            <template x-for="p in sliderPreview()" :key="p.trad">
+              <div class="slider-preview-row">
+                <span class="slider-preview-trad" x-text="shortName(p.trad) || p.trad"></span>
+                <span class="slider-preview-names" x-text="p.names"></span>
+              </div>
+            </template>
+          </div>
+
           <button class="ls-apply-btn" :class="{pending: sliderPending}" @click="applySlider()">
             Apply to all
           </button>
@@ -74,70 +96,98 @@
 
       <hr class="ls-divider">
 
-      <!-- Run info + global controls -->
-      <div class="ls-meta-row">
-        <div class="run-info" x-show="runMeta">
-          <span x-text="runMeta?.created_at ? new Date(runMeta.created_at).toLocaleDateString() : ''"></span>
-          <span x-text="`· ${totalPoints.toLocaleString()} leaves`"></span>
-        </div>
-        <div class="ls-global-btns">
-          <button class="ls-pill-btn" @click="showAll()">Show all</button>
-          <button class="ls-pill-btn" @click="hideAll()">Hide all</button>
-        </div>
+      <!-- Run info -->
+      <div class="run-info" x-show="runMeta" style="padding:0.3rem 1rem 0.4rem">
+        <span x-text="runMeta?.created_at ? new Date(runMeta.created_at).toLocaleDateString() : ''"></span>
+        <span x-text="`· ${totalPoints.toLocaleString()} leaves`"></span>
       </div>
 
       <hr class="ls-divider">
 
-      <!-- Corpus tree, grouped by tradition -->
+      <!-- Tradition / corpus / level tree -->
       <template x-for="tradName in tradNames" :key="tradName">
         <div class="trad-section">
 
-          <!-- Tradition header — label only, no controls -->
-          <div class="trad-label-row">
+          <!-- Tradition header — collapsible, inline helpers -->
+          <div class="trad-label-row" @click="toggleTradCollapse(tradName)">
             <span class="trad-dot" :style="`background:${tradColor(tradName)}`"></span>
             <span class="trad-label-text" x-text="tradName"></span>
+            <div class="trad-inline-btns">
+              <button class="ctrl-btn"
+                :class="{active: Object.values(tradState[tradName]?.corpora||{}).some(cs=>Object.values(cs.levels||{}).some(ls=>ls.scatter))}"
+                @click.stop="toggleTradScatter(tradName)" title="Toggle tradition points">⬤</button>
+              <button class="ctrl-btn"
+                :class="{active: Object.values(tradState[tradName]?.corpora||{}).some(cs=>Object.values(cs.levels||{}).some(ls=>ls.labels))}"
+                @click.stop="toggleTradLabels(tradName)" title="Toggle tradition labels">A</button>
+              <button class="ctrl-btn"
+                :class="{active: Object.values(tradState[tradName]?.corpora||{}).some(cs=>Object.values(cs.levels||{}).some(ls=>ls.kde))}"
+                @click.stop="toggleTradKde(tradName)" title="Toggle tradition clouds">≋</button>
+            </div>
+            <span class="trad-chevron" :class="{open: !tradState[tradName]?.collapsed}">▶</span>
           </div>
 
-          <!-- Corpus list (always expanded) -->
-          <div class="corpus-list">
+          <!-- Corpora (shown when tradition not collapsed) -->
+          <div x-show="!tradState[tradName]?.collapsed" class="corpus-list">
             <template
               x-for="corpName in Object.keys(tradState[tradName]?.corpora || {})"
               :key="corpName">
               <div class="corpus-card">
 
-                <!-- Corpus controls -->
-                <div class="corpus-ctrl-row">
-                  <span class="corpus-label" x-text="shortName(corpName)"></span>
+                <!-- Corpus master controls row -->
+                <div class="corpus-ctrl-row" @click.self="toggleCorpusCollapse(tradName, corpName)">
+                  <span class="corpus-label corpus-collapse-trigger"
+                    x-text="shortName(corpName)"
+                    @click="toggleCorpusCollapse(tradName, corpName)"></span>
                   <div class="corpus-btns">
                     <button class="ctrl-btn"
-                      :class="{active: tradState[tradName]?.corpora[corpName]?.scatter}"
-                      @click.stop="toggleCorpusScatter(tradName, corpName)"
-                      title="Scatter points">⬤</button>
+                      :class="{active: corpusMasterScatterActive(tradName, corpName)}"
+                      @click.stop="toggleCorpusMasterScatter(tradName, corpName)"
+                      title="Toggle all points">⬤</button>
                     <button class="ctrl-btn"
-                      :class="{active: tradState[tradName]?.corpora[corpName]?.labels}"
-                      @click.stop="toggleCorpusLabels(tradName, corpName)"
-                      title="Map label">A</button>
+                      :class="{active: corpusMasterLabelsActive(tradName, corpName)}"
+                      @click.stop="toggleCorpusMasterLabels(tradName, corpName)"
+                      title="Toggle all labels">A</button>
                     <button class="ctrl-btn"
-                      :class="{active: tradState[tradName]?.corpora[corpName]?.kde}"
-                      @click.stop="toggleCorpusKde(tradName, corpName)"
-                      title="Density cloud">≋</button>
-                    <button class="ctrl-btn solo-btn"
-                      :class="{active: isSoloed(tradName, corpName)}"
-                      @click.stop="toggleSolo(tradName, corpName)">solo</button>
+                      :class="{active: corpusMasterKdeActive(tradName, corpName)}"
+                      @click.stop="toggleCorpusMasterKde(tradName, corpName)"
+                      title="Toggle all density clouds">≋</button>
+                    <button class="solo-btn"
+                      :class="{active: isSoloed(tradName, corpName, null)}"
+                      @click.stop="toggleSolo(tradName, corpName, null)">solo</button>
                   </div>
                 </div>
 
-                <!-- Height chips — only shown when corpus has multiple levels -->
-                <div x-show="Object.keys(tradState[tradName]?.corpora[corpName]?.heights || {}).length > 1"
-                  class="height-chips">
+                <!-- Level rows (shown when corpus not collapsed) -->
+                <div x-show="!tradState[tradName]?.corpora[corpName]?.collapsed" class="level-list">
                   <template
-                    x-for="(enabled, h) in (tradState[tradName]?.corpora[corpName]?.heights || {})"
+                    x-for="(ls, h) in (tradState[tradName]?.corpora[corpName]?.levels || {})"
                     :key="h">
-                    <label class="height-chip" :class="{active: enabled}">
-                      <input type="checkbox" :checked="enabled"
-                        @change.stop="toggleHeight(tradName, corpName, parseInt(h))">
-                      <span x-text="levelName(mapData?.corpora?.indexOf(corpName), parseInt(h))"></span>
-                    </label>
+                    <div class="level-row">
+                      <span class="level-label"
+                        x-text="levelName(mapData?.corpora?.indexOf(corpName), parseInt(h))"></span>
+                      <div class="corpus-btns">
+                        <button class="ctrl-btn"
+                          :class="{active: ls.scatter}"
+                          @click.stop="toggleLevelScatter(tradName, corpName, parseInt(h))"
+                          title="Points">⬤</button>
+                        <!-- Labels + cloud only on non-leaf rows, OR when corpus has only one level -->
+                        <template x-if="parseInt(h) > 0 || Object.keys(tradState[tradName]?.corpora[corpName]?.levels || {}).length === 1">
+                          <button class="ctrl-btn"
+                            :class="{active: ls.labels}"
+                            @click.stop="toggleLevelLabels(tradName, corpName, parseInt(h))"
+                            title="Labels">A</button>
+                        </template>
+                        <template x-if="parseInt(h) > 0 || Object.keys(tradState[tradName]?.corpora[corpName]?.levels || {}).length === 1">
+                          <button class="ctrl-btn"
+                            :class="{active: ls.kde}"
+                            @click.stop="toggleLevelKde(tradName, corpName, parseInt(h))"
+                            title="Density cloud">≋</button>
+                        </template>
+                        <button class="solo-btn"
+                          :class="{active: isSoloed(tradName, corpName, parseInt(h))}"
+                          @click.stop="toggleSolo(tradName, corpName, parseInt(h))">solo</button>
+                      </div>
+                    </div>
                   </template>
                 </div>
 

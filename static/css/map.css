@@ -80,6 +80,28 @@ body { overflow: hidden; }
   margin: 0.4rem 0;
 }
 
+/* ---- Global helper buttons ---- */
+.ls-helpers-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.5rem 1rem;
+}
+
+.ls-helper-btn {
+  font-size: 0.7rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--muted);
+  padding: 0.2rem 0.45rem;
+  cursor: pointer;
+  transition: all 0.12s;
+  line-height: 1;
+}
+
+.ls-helper-btn:hover { border-color: var(--accent); color: var(--accent); }
+
 /* ---- Height range slider ---- */
 .ls-slider-section {
   padding: 0.6rem 1rem 0.5rem;
@@ -169,6 +191,27 @@ body { overflow: hidden; }
   box-shadow: 0 1px 4px rgba(0,0,0,0.5);
 }
 
+/* Slider preview */
+.slider-preview {
+  margin-bottom: 0.4rem;
+  font-size: 0.68rem;
+}
+
+.slider-preview-row {
+  display: flex;
+  gap: 0.3rem;
+  padding: 0.1rem 0;
+  color: var(--muted);
+}
+
+.slider-preview-trad {
+  font-weight: 600;
+  color: var(--text);
+  flex-shrink: 0;
+}
+
+.slider-preview-trad::after { content: ':'; }
+
 .ls-apply-btn {
   width: 100%;
   padding: 0.3rem 0.5rem;
@@ -230,7 +273,11 @@ body { overflow: hidden; }
   align-items: center;
   gap: 0.45rem;
   padding: 0.35rem 1rem 0.15rem;
+  cursor: pointer;
+  user-select: none;
 }
+
+.trad-label-row:hover { background: rgba(255,255,255,0.03); }
 
 .trad-dot {
   width: 7px;
@@ -240,12 +287,28 @@ body { overflow: hidden; }
 }
 
 .trad-label-text {
+  flex: 1;
   font-size: 0.66rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--muted);
 }
+
+.trad-inline-btns {
+  display: flex;
+  gap: 0.2rem;
+  margin-left: auto;
+}
+
+.trad-chevron {
+  font-size: 0.6rem;
+  color: var(--muted);
+  transition: transform 0.15s;
+  margin-left: 0.3rem;
+}
+
+.trad-chevron.open { transform: rotate(90deg); }
 
 .corpus-list {
   padding: 0 0.6rem 0.25rem 1.4rem;
@@ -276,6 +339,9 @@ body { overflow: hidden; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.corpus-collapse-trigger { cursor: pointer; }
+.corpus-collapse-trigger:hover { color: var(--accent); }
 
 .corpus-btns {
   display: flex;
@@ -343,6 +409,31 @@ body { overflow: hidden; }
 
 .height-chip input[type="checkbox"] {
   display: none; /* styled via .active class on parent */
+}
+
+/* ---- Level rows (inside corpus card) ---- */
+.level-list {
+  border-top: 1px solid var(--border);
+}
+
+.level-row {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.28rem 0.45rem;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.level-row:last-child { border-bottom: none; }
+
+.level-label {
+  flex: 1;
+  font-size: 0.73rem;
+  color: var(--muted);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ---- Right sidebar (Search) ---- */
