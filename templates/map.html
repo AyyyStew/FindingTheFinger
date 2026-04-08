@@ -114,13 +114,13 @@
             <span class="trad-label-text" x-text="tradName"></span>
             <div class="trad-inline-btns">
               <button class="ctrl-btn"
-                :class="{active: Object.values(tradState[tradName]?.corpora||{}).some(cs=>Object.values(cs.levels||{}).some(ls=>ls.scatter))}"
+                :class="{active: Object.values(tradState[tradName]?.corpora||{}).some(cs=>cs.aggregate?.scatter)}"
                 @click.stop="toggleTradScatter(tradName)" title="Toggle tradition points">⬤</button>
               <button class="ctrl-btn"
-                :class="{active: Object.values(tradState[tradName]?.corpora||{}).some(cs=>Object.values(cs.levels||{}).some(ls=>ls.labels))}"
+                :class="{active: Object.values(tradState[tradName]?.corpora||{}).some(cs=>cs.aggregate?.labels)}"
                 @click.stop="toggleTradLabels(tradName)" title="Toggle tradition labels">A</button>
               <button class="ctrl-btn"
-                :class="{active: Object.values(tradState[tradName]?.corpora||{}).some(cs=>Object.values(cs.levels||{}).some(ls=>ls.kde))}"
+                :class="{active: Object.values(tradState[tradName]?.corpora||{}).some(cs=>cs.aggregate?.kde)}"
                 @click.stop="toggleTradKde(tradName)" title="Toggle tradition clouds">≋</button>
             </div>
             <span class="trad-chevron" :class="{open: !tradState[tradName]?.collapsed}">▶</span>
@@ -177,12 +177,10 @@
                             @click.stop="toggleLevelLabels(tradName, corpName, parseInt(h))"
                             title="Labels">A</button>
                         </template>
-                        <template x-if="parseInt(h) > 0 || Object.keys(tradState[tradName]?.corpora[corpName]?.levels || {}).length === 1">
-                          <button class="ctrl-btn"
-                            :class="{active: ls.kde}"
-                            @click.stop="toggleLevelKde(tradName, corpName, parseInt(h))"
-                            title="Density cloud">≋</button>
-                        </template>
+                        <button class="ctrl-btn"
+                          :class="{active: ls.kde}"
+                          @click.stop="toggleLevelKde(tradName, corpName, parseInt(h))"
+                          title="Density cloud">≋</button>
                         <button class="solo-btn"
                           :class="{active: isSoloed(tradName, corpName, parseInt(h))}"
                           @click.stop="toggleSolo(tradName, corpName, parseInt(h))">solo</button>

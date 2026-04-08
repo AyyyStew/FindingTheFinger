@@ -24,7 +24,7 @@ export function _buildTradState(data) {
         levelState[hInt] = { scatter: hInt === 0, labels: false, kde: false }
       }
       if (!(0 in levelState)) levelState[0] = { scatter: true, labels: false, kde: false }
-      corporaState[corpName] = { collapsed: false, levels: levelState }
+      corporaState[corpName] = { collapsed: false, levels: levelState, aggregate: { scatter: false, labels: false } }
     }
     this.tradState[trad] = { collapsed: false, corpora: corporaState }
   }
@@ -129,39 +129,28 @@ export function toggleAllKde() {
 
 export function toggleTradScatter(tradName) {
   const ts = this.tradState[tradName]
-  console.log('[toggleTradScatter] tradName=', tradName, 'ts=', ts)
-  if (!ts) { console.warn('[toggleTradScatter] no tradState for', tradName); return }
-  const anyOn = Object.values(ts.corpora).some(cs =>
-    Object.values(cs.levels).some(ls => ls.scatter))
+  if (!ts) return
+  const anyOn = Object.values(ts.corpora).some(cs => cs.aggregate.scatter)
   const newVal = !anyOn
-  console.log('[toggleTradScatter] anyOn=', anyOn, '→ setting scatter=', newVal)
-  for (const [corpName, cs] of Object.entries(ts.corpora)) {
-    for (const [h, ls] of Object.entries(cs.levels)) {
-      console.log(`  corpus=${corpName} h=${h} scatter: ${ls.scatter} → ${newVal}`)
-      ls.scatter = newVal
-    }
-  }
-  this._recomputeActive()
+  for (const cs of Object.values(ts.corpora)) cs.aggregate.scatter = newVal
   this.render('trad-scatter')
 }
 
 export function toggleTradLabels(tradName) {
   const ts = this.tradState[tradName]
-  const anyOn = Object.values(ts.corpora).some(cs =>
-    Object.values(cs.levels).some(ls => ls.labels))
+  const anyOn = Object.values(ts.corpora).some(cs => cs.aggregate.labels)
   const newVal = !anyOn
-  for (const cs of Object.values(ts.corpora))
-    for (const ls of Object.values(cs.levels)) ls.labels = newVal
+  for (const cs of Object.values(ts.corpora)) cs.aggregate.labels = newVal
   this.render('trad-labels')
 }
 
 export function toggleTradKde(tradName) {
   const ts = this.tradState[tradName]
-  const anyOn = Object.values(ts.corpora).some(cs =>
-    Object.values(cs.levels).some(ls => ls.kde))
+  const anyOn = Object.values(ts.corpora).some(cs => cs.levels[0]?.kde)
   const newVal = !anyOn
-  for (const cs of Object.values(ts.corpora))
-    for (const ls of Object.values(cs.levels)) ls.kde = newVal
+  for (const cs of Object.values(ts.corpora)) {
+    if (cs.levels[0]) cs.levels[0].kde = newVal
+  }
   this.render('trad-kde')
 }
 
@@ -179,39 +168,32 @@ export function toggleCorpusCollapse(tradName, corpName) {
 // ── Corpus master controls (convenience — sets all levels) ────────────────────
 
 export function corpusMasterScatterActive(tradName, corpName) {
-  const cs = this.tradState[tradName]?.corpora[corpName]
-  return cs ? Object.values(cs.levels).some(ls => ls.scatter) : false
+  return this.tradState[tradName]?.corpora[corpName]?.aggregate?.scatter ?? false
 }
 
 export function corpusMasterLabelsActive(tradName, corpName) {
-  const cs = this.tradState[tradName]?.corpora[corpName]
-  return cs ? Object.values(cs.levels).some(ls => ls.labels) : false
+  return this.tradState[tradName]?.corpora[corpName]?.aggregate?.labels ?? false
 }
 
 export function corpusMasterKdeActive(tradName, corpName) {
-  const cs = this.tradState[tradName]?.corpora[corpName]
-  return cs ? Object.values(cs.levels).some(ls => ls.kde) : false
+  return this.tradState[tradName]?.corpora[corpName]?.levels[0]?.kde ?? false
 }
 
 export function toggleCorpusMasterScatter(tradName, corpName) {
   const cs = this.tradState[tradName].corpora[corpName]
-  const newVal = !Object.values(cs.levels).some(ls => ls.scatter)
-  for (const ls of Object.values(cs.levels)) ls.scatter = newVal
-  this._recomputeActive()
+  cs.aggregate.scatter = !cs.aggregate.scatter
   this.render('corpus-master-scatter')
 }
 
 export function toggleCorpusMasterLabels(tradName, corpName) {
   const cs = this.tradState[tradName].corpora[corpName]
-  const newVal = !Object.values(cs.levels).some(ls => ls.labels)
-  for (const ls of Object.values(cs.levels)) ls.labels = newVal
+  cs.aggregate.labels = !cs.aggregate.labels
   this.render('corpus-master-labels')
 }
 
 export function toggleCorpusMasterKde(tradName, corpName) {
   const cs = this.tradState[tradName].corpora[corpName]
-  const newVal = !Object.values(cs.levels).some(ls => ls.kde)
-  for (const ls of Object.values(cs.levels)) ls.kde = newVal
+  if (cs.levels[0]) cs.levels[0].kde = !cs.levels[0].kde
   this.render('corpus-master-kde')
 }
 

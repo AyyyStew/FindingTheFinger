@@ -74,6 +74,37 @@ export function render(source = 'unknown') {
     }))
   }
 
+  // ── Aggregate corpus points (one centroid per corpus) ────────────────────
+  {
+    const aggData = []
+    for (const ts of Object.values(this.tradState)) {
+      for (const [corpName, cs] of Object.entries(ts.corpora)) {
+        const agg = cs.aggregate
+        if (!agg?.scatter && !agg?.labels) continue
+        const ci = data.corpora.indexOf(corpName)
+        const pts = store.byCorpusHeight[ci]?.[0]
+        if (!pts?.length) continue
+        const x = pts.reduce((s, p) => s + p.x, 0) / pts.length
+        const y = pts.reduce((s, p) => s + p.y, 0) / pts.length
+        aggData.push({ corpName, x, y, ti: pts[0].ti, scatter: !!agg.scatter, labels: !!agg.labels })
+      }
+    }
+    if (aggData.some(d => d.scatter)) {
+      layers.push(new deck.ScatterplotLayer({
+        id: 'agg-points',
+        data: aggData.filter(d => d.scatter),
+        pickable: false,
+        getPosition: getPos3D,
+        getFillColor: d => [...hexToRgb(tradColor(data.traditions[d.ti])), 230],
+        getRadius: 0.25,
+        radiusMinPixels: 5,
+        radiusMaxPixels: 14,
+      }))
+    }
+    // Store for use in the labels block below
+    this._aggData = aggData
+  }
+
   // ── Labels ────────────────────────────────────────────────────────────────
   {
     const labelData = []
@@ -101,12 +132,19 @@ export function render(source = 'unknown') {
         }
       }
     }
-    console.log('[render labels] labeledLevels=', JSON.stringify(labeledLevels))
     if (labeledLevels.length > 0) {
-      const centroids = this._corpusCentroids(data, labeledLevels)
-      console.log('[render labels] centroids=', JSON.stringify(centroids))
-      for (const d of centroids)
+      for (const d of this._corpusCentroids(data, labeledLevels))
         labelData.push({ ...d, size: 11, alpha: 175 })
+    }
+
+    // Aggregate corpus labels (corpus master / tradition label toggle)
+    for (const d of (this._aggData || []).filter(d => d.labels)) {
+      labelData.push({
+        name: this.shortName(d.corpName),
+        color: tradColor(data.traditions[d.ti]),
+        x: d.x, y: d.y,
+        size: 13, alpha: 200,
+      })
     }
 
     if (labelData.length > 0) {

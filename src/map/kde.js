@@ -60,8 +60,7 @@ export function _computeKDE() {
     store.corpKde[corpName] = {}
     for (const [hStr, pts] of Object.entries(byH)) {
       const h = parseInt(hStr)
-      // Use tighter bandwidth for leaf-level (verse), looser for higher levels
-      const bw = h === 0 ? 5 : 8
+      const bw = 8
       const thresh = h === 0 ? 3 : 4
       store.corpKde[corpName][h] = kdePolygons(pts, color, bw, thresh, xScale, yScale)
     }
