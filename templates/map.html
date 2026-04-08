@@ -45,7 +45,6 @@
         <button class="ls-helper-btn" @click="toggleAllPoints()" title="Toggle all points">⬤ pts</button>
         <button class="ls-helper-btn" @click="toggleAllLabels()" title="Toggle all labels">A labels</button>
         <button class="ls-helper-btn" @click="toggleAllKde()" title="Toggle all density clouds">≋ cloud</button>
-        <button class="ls-helper-btn" @click="showAll()">show all</button>
         <button class="ls-helper-btn" @click="hideAll()">hide all</button>
       </div>
 
@@ -117,7 +116,7 @@
                 :class="{active: Object.values(tradState[tradName]?.corpora||{}).some(cs=>cs.aggregate?.scatter)}"
                 @click.stop="toggleTradScatter(tradName)" title="Toggle tradition points">⬤</button>
               <button class="ctrl-btn"
-                :class="{active: Object.values(tradState[tradName]?.corpora||{}).some(cs=>cs.aggregate?.labels)}"
+                :class="{active: tradState[tradName]?.aggregate?.labels}"
                 @click.stop="toggleTradLabels(tradName)" title="Toggle tradition labels">A</button>
               <button class="ctrl-btn"
                 :class="{active: Object.values(tradState[tradName]?.corpora||{}).some(cs=>cs.aggregate?.kde)}"

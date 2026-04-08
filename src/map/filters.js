@@ -26,7 +26,7 @@ export function _buildTradState(data) {
       if (!(0 in levelState)) levelState[0] = { scatter: true, labels: false, kde: false }
       corporaState[corpName] = { collapsed: false, levels: levelState, aggregate: { scatter: false, labels: false } }
     }
-    this.tradState[trad] = { collapsed: false, corpora: corporaState }
+    this.tradState[trad] = { collapsed: false, corpora: corporaState, aggregate: { labels: false } }
   }
 }
 
@@ -66,21 +66,17 @@ export function _recomputeActive() {
 
 // ── Global helpers (apply to currently visible/scatter-on levels) ─────────────
 
-export function showAll() {
-  for (const ts of Object.values(this.tradState)) {
-    for (const cs of Object.values(ts.corpora)) {
-      for (const ls of Object.values(cs.levels)) ls.scatter = true
-    }
-  }
-  this.soloCorpus = null
-  this._recomputeActive()
-  this.render('show-all')
-}
-
 export function hideAll() {
   for (const ts of Object.values(this.tradState)) {
+    ts.aggregate.labels = false
     for (const cs of Object.values(ts.corpora)) {
-      for (const ls of Object.values(cs.levels)) ls.scatter = false
+      cs.aggregate.scatter = false
+      cs.aggregate.labels = false
+      for (const ls of Object.values(cs.levels)) {
+        ls.scatter = false
+        ls.labels = false
+        ls.kde = false
+      }
     }
   }
   this.soloCorpus = null
@@ -93,11 +89,9 @@ export function toggleAllPoints() {
     Object.values(ts.corpora).some(cs =>
       Object.values(cs.levels).some(ls => ls.scatter)))
   const newVal = !anyOn
-  for (const ts of Object.values(this.tradState)) {
-    for (const cs of Object.values(ts.corpora)) {
+  for (const ts of Object.values(this.tradState))
+    for (const cs of Object.values(ts.corpora))
       for (const ls of Object.values(cs.levels)) ls.scatter = newVal
-    }
-  }
   this.soloCorpus = null
   this._recomputeActive()
   this.render('toggle-all-points')
@@ -105,23 +99,35 @@ export function toggleAllPoints() {
 
 export function toggleAllLabels() {
   const anyOn = Object.values(this.tradState).some(ts =>
+    ts.aggregate.labels ||
     Object.values(ts.corpora).some(cs =>
-      Object.values(cs.levels).some(ls => ls.labels)))
+      cs.aggregate.labels || Object.values(cs.levels).some(ls => ls.labels)))
   const newVal = !anyOn
-  for (const ts of Object.values(this.tradState))
-    for (const cs of Object.values(ts.corpora))
-      for (const ls of Object.values(cs.levels)) ls.labels = newVal
+  for (const ts of Object.values(this.tradState)) {
+    ts.aggregate.labels = newVal
+    for (const cs of Object.values(ts.corpora)) {
+      cs.aggregate.labels = newVal
+      if (newVal) {
+        const heights = Object.keys(cs.levels).map(Number)
+        const highHeights = heights.filter(h => h > 1)
+        const targets = new Set(highHeights.length > 0 ? highHeights : [Math.max(...heights)])
+        for (const [hStr, ls] of Object.entries(cs.levels))
+          ls.labels = targets.has(parseInt(hStr))
+      } else {
+        for (const ls of Object.values(cs.levels)) ls.labels = false
+      }
+    }
+  }
   this.render('toggle-all-labels')
 }
 
 export function toggleAllKde() {
   const anyOn = Object.values(this.tradState).some(ts =>
-    Object.values(ts.corpora).some(cs =>
-      Object.values(cs.levels).some(ls => ls.kde)))
+    Object.values(ts.corpora).some(cs => cs.levels[0]?.kde))
   const newVal = !anyOn
   for (const ts of Object.values(this.tradState))
     for (const cs of Object.values(ts.corpora))
-      for (const ls of Object.values(cs.levels)) ls.kde = newVal
+      if (cs.levels[0]) cs.levels[0].kde = newVal
   this.render('toggle-all-kde')
 }
 
@@ -138,9 +144,7 @@ export function toggleTradScatter(tradName) {
 
 export function toggleTradLabels(tradName) {
   const ts = this.tradState[tradName]
-  const anyOn = Object.values(ts.corpora).some(cs => cs.aggregate.labels)
-  const newVal = !anyOn
-  for (const cs of Object.values(ts.corpora)) cs.aggregate.labels = newVal
+  ts.aggregate.labels = !ts.aggregate.labels
   this.render('trad-labels')
 }
 

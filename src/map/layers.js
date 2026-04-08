@@ -109,11 +109,9 @@ export function render(source = 'unknown') {
   {
     const labelData = []
 
-    // Tradition centroid labels — computed from all active points
-    if (zoom >= store.initialZoom - 1) {
-      for (const d of this._traditionCentroids(data))
-        labelData.push({ ...d, size: 14, alpha: 210 })
-    }
+    // Tradition centroid labels — shown only when tradition label toggle is on
+    for (const d of this._traditionCentroids(data))
+      labelData.push({ ...d, size: 14, alpha: 210 })
 
     // Corpus/level centroid labels — per level toggle, respects solo
     const labeledLevels = [] // [{corpName, h}]
@@ -217,12 +215,13 @@ export function render(source = 'unknown') {
   )
 }
 
-// Tradition centroids — computed from all currently active points
+// Tradition centroids — only for traditions with aggregate.labels on
 export function _traditionCentroids(data) {
   const byTrad = {}
-  for (const p of store.deckActivePoints) {
+  for (const p of store.rawPoints) {
     const t = data.traditions[p.ti]
-    if (!byTrad[t]) byTrad[t] = { xs: [], ys: [] }
+    if (!this.tradState[t]?.aggregate?.labels) continue
+    if (!byTrad[t]) byTrad[t] = { xs: [], ys: [], ti: p.ti }
     byTrad[t].xs.push(p.x)
     byTrad[t].ys.push(p.y)
   }
