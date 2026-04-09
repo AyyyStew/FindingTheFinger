@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}About — Finding The Finger{% endblock %}
+{% block title %}About - Finding The Finger{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="/static/css/about.css">
@@ -26,9 +26,8 @@
 
     <p>
       <strong>Finding The Finger</strong> is a semantic similarity search engine across sacred and philosophical texts
-      from traditions including Abrahamic, Buddhist, Dharmic, Confucian, Norse, Shinto, Sikh, Taoist, and Zoroastrian
-      corpora.
-      Different traditions often point at the same things — this tool tries to find where those fingers align.
+      from traditions. Different traditions often point at the same things — this tool tries to find where those fingers
+      align.
     </p>
 
     <hr>
@@ -36,14 +35,28 @@
     <h2><span class="si">⚙️</span> How it works</h2>
     <p>
       Every passage in the dataset is converted into a <strong>dense vector embedding</strong> — a list of numbers
-      that captures its semantic meaning. Passages with similar meaning end up close together in this high-dimensional
-      space, regardless of language, tradition, or literal wording.
+      that tries to capture its semantic meaning. Passages with similar meaning end up close together in this
+      high-dimensional
+      space.
     </p>
     <p>
-      A <strong>passage</strong> is the smallest semantically coherent unit we could identify for each tradition —
-      the atom of meaning that the tradition itself tends to reference and quote. This varies: a <strong>verse</strong>
-      in the Bible, a <strong>shloka</strong> in the Bhagavad Gita,
-      a <strong>tuk</strong> in the Sri Guru Granth Sahib, and so on.
+      A <strong>passage</strong> is the smallest semantically coherent unit we could identify for each tradition:
+    </p>
+    <ul>
+      <li>
+        a <strong>verse</strong> in the Bible
+      </li>
+      <li>
+        a <strong>shloka</strong> in the Bhagavad Gita
+      </li>
+      <li>
+        a <strong>tuk</strong> in the Sri Guru Granth Sahib
+      </li>
+      <li>
+        and so on...
+      </li>
+    </ul>
+    <p>
       Where a tradition has no clear sub-unit, the smallest consistently-cited division was used.
     </p>
     <p>
@@ -53,8 +66,8 @@
     <p>
       The <strong>map view</strong> uses <strong>UMAP</strong> (Uniform Manifold Approximation and Projection) to reduce
       the embeddings to two dimensions so you can visually explore how traditions cluster and overlap.
-      To keep the projection balanced across traditions, UMAP is fit on a <strong>stratified sample</strong> —
-      up to 100 passages drawn from every top-level division of each text (every Book of the Bible, every Raag of the
+      To keep the projection balanced across traditions, UMAP is fit on a <strong>stratified sample</strong> — drawn
+      from every top-level division of each text (every Book of the Bible, every Raag of the
       SGGS, every Surah of the Quran, and so on). All remaining passages are then projected into that space using
       <strong>UMAP transform</strong>. This prevents large corpora from dominating the shape of the map.
     </p>
@@ -63,10 +76,10 @@
 
     <h2><span class="si">🧠</span> Embedding model</h2>
     <p>
-      Embeddings are generated using <strong>nomic-embed-text-v1.5</strong>, a state-of-the-art open-source text
+      Embeddings are generated using <strong>nomic-embed-text-v1.5</strong>, a open-source text
       embedding model by Nomic AI. It produces 768-dimensional vectors optimised for semantic similarity tasks.
       All embeddings are stored in <strong>PostgreSQL</strong> with the <strong>pgvector</strong> extension,
-      enabling fast nearest-neighbour search at scale.
+      enabling fast search at scale.
     </p>
 
     <hr>
@@ -93,17 +106,20 @@
 
     <h2><span class="si">⚠️</span> Disclaimers</h2>
     <div class="disclaimer-box">
-      <p>
-        <strong>Similarity is semantic, not theological.</strong> A high similarity score means the passages use
+
+      <h3 class="disclaimer-heading">Similarity is semantic, not theological.</h3>
+      <p> A high similarity score means the passages use
         comparable concepts, imagery, or language — it does not imply equivalence of meaning, doctrinal agreement,
         or any claim about the relationship between traditions.
       </p>
-      <p>
-        <strong>Translations matter.</strong> All texts are in English translation. Similarity scores reflect the
-        translated text, not the original — different translations of the same passage may score differently.
+
+      <h3 class="disclaimer-heading">Translations matter.</h3>
+      <p> All texts are sourced from english translations. Similarity scores reflect the
+        translated text, not the original.
       </p>
-      <p>
-        <strong>This is a tool for exploration, not scholarship.</strong> Results should be treated as starting
+
+      <h3 class="disclaimer-heading">This is a tool for exploration.</h3>
+      <p> Results should be treated as starting
         points for further reading, not as authoritative comparative analysis.
       </p>
     </div>
@@ -116,8 +132,9 @@
       <a href="https://github.com/ayyystew/FindingTheFinger" class="about-link" target="_blank" rel="noopener">
         ⬡ GitHub
       </a>
-      <a class="about-link disabled" title="Dataset link coming soon">
-        📦 Dataset (coming soon)
+      <a class="about-link" title="Dataset on Kaggle"
+        href="https://www.kaggle.com/datasets/williamsteward/ftf-sacred-texts">
+        📦 Dataset
       </a>
     </div>
   </div>

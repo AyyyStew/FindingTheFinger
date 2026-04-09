@@ -1,7 +1,7 @@
 import { tradColor, shortName } from '../shared/constants.js'
 import {
   _buildTradState, _recomputeActive,
-  hideAll, toggleAllPoints, toggleAllLabels, toggleAllKde,
+  hideAll, toggleAllPoints, toggleAllLabels, toggleOverviewLabels, toggleAllKde,
   toggleTradScatter, toggleTradLabels, toggleTradKde,
   toggleTradCollapse, toggleCorpusCollapse,
   corpusMasterScatterActive, corpusMasterLabelsActive, corpusMasterKdeActive,
@@ -87,6 +87,7 @@ export function mapApp() {
     hideAll,
     toggleAllPoints,
     toggleAllLabels,
+    toggleOverviewLabels,
     toggleAllKde,
     toggleTradScatter,
     toggleTradLabels,

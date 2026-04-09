@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Map — Finding The Finger{% endblock %}
+{% block title %}Map - Finding The Finger{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="/static/css/map.css">
@@ -22,7 +22,7 @@
 
   <!-- Tooltip -->
   <div id="map-tooltip">
-    <div class="tt-ref"  id="tt-ref"></div>
+    <div class="tt-ref" id="tt-ref"></div>
     <div class="tt-trad" id="tt-trad"></div>
     <div class="tt-text" id="tt-text"></div>
   </div>
@@ -43,8 +43,11 @@
       <!-- Global helpers -->
       <div class="ls-helpers-row">
         <button class="ls-helper-btn" @click="toggleAllPoints()" title="Toggle all points">⬤ pts</button>
-        <button class="ls-helper-btn" @click="toggleAllLabels()" title="Toggle all labels">A labels</button>
         <button class="ls-helper-btn" @click="toggleAllKde()" title="Toggle all density clouds">≋ cloud</button>
+        <button class="ls-helper-btn" @click="toggleOverviewLabels()" title="Toggle tradition & corpus name labels">A
+          Labels</button>
+        <button class="ls-helper-btn" @click="toggleAllLabels()" title="Toggle detailed level labels (books, vaggas…)">a
+          Detailed Labels</button>
         <button class="ls-helper-btn" @click="hideAll()">hide all</button>
       </div>
 
@@ -63,17 +66,11 @@
                 :style="`left:${sliderMin/globalMaxHeight*100}%;right:${(1-sliderMax/globalMaxHeight)*100}%`">
               </div>
             </div>
-            <input type="range" class="range-handle"
-              :min="0" :max="globalMaxHeight" step="1"
-              x-model.number="sliderMin"
-              @mousedown="sliderLastMoved='min'"
-              @input="onSliderMinChange()"
+            <input type="range" class="range-handle" :min="0" :max="globalMaxHeight" step="1" x-model.number="sliderMin"
+              @mousedown="sliderLastMoved='min'" @input="onSliderMinChange()"
               :style="`z-index:${sliderLastMoved==='min'?3:2}`">
-            <input type="range" class="range-handle"
-              :min="0" :max="globalMaxHeight" step="1"
-              x-model.number="sliderMax"
-              @mousedown="sliderLastMoved='max'"
-              @input="onSliderMaxChange()"
+            <input type="range" class="range-handle" :min="0" :max="globalMaxHeight" step="1" x-model.number="sliderMax"
+              @mousedown="sliderLastMoved='max'" @input="onSliderMaxChange()"
               :style="`z-index:${sliderLastMoved==='max'?3:2}`">
           </div>
 
@@ -115,8 +112,7 @@
               <button class="ctrl-btn"
                 :class="{active: Object.values(tradState[tradName]?.corpora||{}).some(cs=>cs.aggregate?.scatter)}"
                 @click.stop="toggleTradScatter(tradName)" title="Toggle tradition points">⬤</button>
-              <button class="ctrl-btn"
-                :class="{active: tradState[tradName]?.aggregate?.labels}"
+              <button class="ctrl-btn" :class="{active: tradState[tradName]?.aggregate?.labels}"
                 @click.stop="toggleTradLabels(tradName)" title="Toggle tradition labels">A</button>
               <button class="ctrl-btn"
                 :class="{active: Object.values(tradState[tradName]?.corpora||{}).some(cs=>cs.aggregate?.kde)}"
@@ -127,61 +123,44 @@
 
           <!-- Corpora (shown when tradition not collapsed) -->
           <div x-show="!tradState[tradName]?.collapsed" class="corpus-list">
-            <template
-              x-for="corpName in Object.keys(tradState[tradName]?.corpora || {})"
-              :key="corpName">
+            <template x-for="corpName in Object.keys(tradState[tradName]?.corpora || {})" :key="corpName">
               <div class="corpus-card">
 
                 <!-- Corpus master controls row -->
                 <div class="corpus-ctrl-row" @click.self="toggleCorpusCollapse(tradName, corpName)">
-                  <span class="corpus-label corpus-collapse-trigger"
-                    x-text="shortName(corpName)"
+                  <span class="corpus-label corpus-collapse-trigger" x-text="shortName(corpName)"
                     @click="toggleCorpusCollapse(tradName, corpName)"></span>
                   <div class="corpus-btns">
-                    <button class="ctrl-btn"
-                      :class="{active: corpusMasterScatterActive(tradName, corpName)}"
-                      @click.stop="toggleCorpusMasterScatter(tradName, corpName)"
-                      title="Toggle all points">⬤</button>
-                    <button class="ctrl-btn"
-                      :class="{active: corpusMasterLabelsActive(tradName, corpName)}"
-                      @click.stop="toggleCorpusMasterLabels(tradName, corpName)"
-                      title="Toggle all labels">A</button>
-                    <button class="ctrl-btn"
-                      :class="{active: corpusMasterKdeActive(tradName, corpName)}"
+                    <button class="ctrl-btn" :class="{active: corpusMasterScatterActive(tradName, corpName)}"
+                      @click.stop="toggleCorpusMasterScatter(tradName, corpName)" title="Toggle all points">⬤</button>
+                    <button class="ctrl-btn" :class="{active: corpusMasterLabelsActive(tradName, corpName)}"
+                      @click.stop="toggleCorpusMasterLabels(tradName, corpName)" title="Toggle all labels">A</button>
+                    <button class="ctrl-btn" :class="{active: corpusMasterKdeActive(tradName, corpName)}"
                       @click.stop="toggleCorpusMasterKde(tradName, corpName)"
                       title="Toggle all density clouds">≋</button>
-                    <button class="solo-btn"
-                      :class="{active: isSoloed(tradName, corpName, null)}"
+                    <button class="solo-btn" :class="{active: isSoloed(tradName, corpName, null)}"
                       @click.stop="toggleSolo(tradName, corpName, null)">solo</button>
                   </div>
                 </div>
 
                 <!-- Level rows (shown when corpus not collapsed) -->
                 <div x-show="!tradState[tradName]?.corpora[corpName]?.collapsed" class="level-list">
-                  <template
-                    x-for="(ls, h) in (tradState[tradName]?.corpora[corpName]?.levels || {})"
-                    :key="h">
+                  <template x-for="(ls, h) in (tradState[tradName]?.corpora[corpName]?.levels || {})" :key="h">
                     <div class="level-row">
                       <span class="level-label"
                         x-text="levelName(mapData?.corpora?.indexOf(corpName), parseInt(h))"></span>
                       <div class="corpus-btns">
-                        <button class="ctrl-btn"
-                          :class="{active: ls.scatter}"
-                          @click.stop="toggleLevelScatter(tradName, corpName, parseInt(h))"
-                          title="Points">⬤</button>
+                        <button class="ctrl-btn" :class="{active: ls.scatter}"
+                          @click.stop="toggleLevelScatter(tradName, corpName, parseInt(h))" title="Points">⬤</button>
                         <!-- Labels + cloud only on non-leaf rows, OR when corpus has only one level -->
-                        <template x-if="parseInt(h) > 0 || Object.keys(tradState[tradName]?.corpora[corpName]?.levels || {}).length === 1">
-                          <button class="ctrl-btn"
-                            :class="{active: ls.labels}"
-                            @click.stop="toggleLevelLabels(tradName, corpName, parseInt(h))"
-                            title="Labels">A</button>
+                        <template
+                          x-if="parseInt(h) > 0 || Object.keys(tradState[tradName]?.corpora[corpName]?.levels || {}).length === 1">
+                          <button class="ctrl-btn" :class="{active: ls.labels}"
+                            @click.stop="toggleLevelLabels(tradName, corpName, parseInt(h))" title="Labels">A</button>
                         </template>
-                        <button class="ctrl-btn"
-                          :class="{active: ls.kde}"
-                          @click.stop="toggleLevelKde(tradName, corpName, parseInt(h))"
-                          title="Density cloud">≋</button>
-                        <button class="solo-btn"
-                          :class="{active: isSoloed(tradName, corpName, parseInt(h))}"
+                        <button class="ctrl-btn" :class="{active: ls.kde}"
+                          @click.stop="toggleLevelKde(tradName, corpName, parseInt(h))" title="Density cloud">≋</button>
+                        <button class="solo-btn" :class="{active: isSoloed(tradName, corpName, parseInt(h))}"
                           @click.stop="toggleSolo(tradName, corpName, parseInt(h))">solo</button>
                       </div>
                     </div>
@@ -211,9 +190,11 @@
       <h3>Search</h3>
 
       <div class="sidebar-tabs">
-        <button class="sidebar-tab" :class="{active: searchTab==='history'}"  @click="searchTab='history'">History</button>
-        <button class="sidebar-tab" :class="{active: searchTab==='passage'}"  @click="searchTab='passage'">Passage</button>
-        <button class="sidebar-tab" :class="{active: searchTab==='text'}"     @click="searchTab='text'">Free text</button>
+        <button class="sidebar-tab" :class="{active: searchTab==='history'}"
+          @click="searchTab='history'">History</button>
+        <button class="sidebar-tab" :class="{active: searchTab==='passage'}"
+          @click="searchTab='passage'">Passage</button>
+        <button class="sidebar-tab" :class="{active: searchTab==='text'}" @click="searchTab='text'">Free text</button>
       </div>
 
       <!-- History tab actions -->
@@ -230,16 +211,15 @@
             </template>
           </select>
           <div class="ac-wrap" @click.outside="acOpen=false">
-            <input type="text" x-model="refInput" autocomplete="off" placeholder="e.g. John 3:16"
-              @focus="acFocus()" @input="acInput()" @keydown="acKeydown($event)" />
+            <input type="text" x-model="refInput" autocomplete="off" placeholder="e.g. John 3:16" @focus="acFocus()"
+              @input="acInput()" @keydown="acKeydown($event)" />
             <div x-show="acOpen" class="autocomplete-dropdown">
               <template x-if="acItems.length === 0">
                 <div class="ac-empty">No matches</div>
               </template>
               <template x-for="(item, i) in acItems" :key="item.id">
                 <div class="ac-item" :class="{active: acActive===i}"
-                  :style="`padding-left:${0.6 + item.depth * 0.8}rem`"
-                  @mousedown.prevent="acSelect(item)">
+                  :style="`padding-left:${0.6 + item.depth * 0.8}rem`" @mousedown.prevent="acSelect(item)">
                   <span x-text="item.label"></span>
                   <span class="ac-level" x-text="item.level_name"></span>
                 </div>
@@ -251,17 +231,16 @@
         <!-- Height pills — shown after a passage is selected -->
         <div x-show="acSelectedNode" class="height-pills" style="margin-bottom:0.5rem">
           <span class="height-pill-label">Find similar at:</span>
-          <template x-for="h in (acSelectedNode ? Object.keys(mapData?.corpus_levels?.[mapData?.corpora?.indexOf(selectedCorpus)] || {}).map(Number).sort() : [])" :key="h">
-            <button class="height-pill"
-              :class="{active: similarHeight === h}"
-              @click="similarHeight = h"
+          <template
+            x-for="h in (acSelectedNode ? Object.keys(mapData?.corpus_levels?.[mapData?.corpora?.indexOf(selectedCorpus)] || {}).map(Number).sort() : [])"
+            :key="h">
+            <button class="height-pill" :class="{active: similarHeight === h}" @click="similarHeight = h"
               x-text="levelName(mapData?.corpora?.indexOf(selectedCorpus), h)">
             </button>
           </template>
         </div>
 
-        <button class="sidebar-btn" style="margin-bottom:0.4rem"
-          :disabled="searchLoading || !acValid"
+        <button class="sidebar-btn" style="margin-bottom:0.4rem" :disabled="searchLoading || !acValid"
           @click="doPassageSearch()">
           <span x-show="!searchLoading">Find similar</span>
           <span x-show="searchLoading">Searching…</span>
@@ -271,10 +250,8 @@
       <!-- Free text tab -->
       <div x-show="searchTab==='text'">
         <input type="text" x-model="queryInput" placeholder="e.g. Love your enemies"
-          style="font-size:0.85rem;margin-bottom:0.5rem"
-          @keydown.enter="doTextSearch()" />
-        <button class="sidebar-btn" style="margin-bottom:0.4rem"
-          :disabled="searchLoading || !queryInput.trim()"
+          style="font-size:0.85rem;margin-bottom:0.5rem" @keydown.enter="doTextSearch()" />
+        <button class="sidebar-btn" style="margin-bottom:0.4rem" :disabled="searchLoading || !queryInput.trim()"
           @click="doTextSearch()">
           <span x-show="!searchLoading">Search</span>
           <span x-show="searchLoading">Searching…</span>
@@ -298,8 +275,8 @@
             Click any verse on the map to add it here.
           </div>
           <template x-for="r in history" :key="r.unit_id">
-            <div class="sidebar-result" :class="{active: activeResult===r.unit_id}"
-              @mouseenter="hoverResult(r)" @mouseleave="unhoverResult()">
+            <div class="sidebar-result" :class="{active: activeResult===r.unit_id}" @mouseenter="hoverResult(r)"
+              @mouseleave="unhoverResult()">
               <div class="sr-ref" :style="`color:${tradColor(r.tradition)}`" x-text="r.label || ''"></div>
               <div class="sr-trad" x-text="`${r.tradition} · ${shortName(r.corpus)}`"></div>
               <div class="sr-text" x-text="r.text"></div>
@@ -320,13 +297,13 @@
             Search for a verse or phrase to highlight it on the map.
           </div>
           <div class="sidebar-status" x-show="searchLoading">
-            <span class="spinner" style="width:1.1rem;height:1.1rem;border-width:2px;display:inline-block;vertical-align:middle;margin-right:0.4rem"></span>
+            <span class="spinner"
+              style="width:1.1rem;height:1.1rem;border-width:2px;display:inline-block;vertical-align:middle;margin-right:0.4rem"></span>
             Searching…
           </div>
           <template x-for="r in results" :key="r.unit_id">
-            <div class="sidebar-result" :class="{active: activeResult===r.unit_id}"
-              @mouseenter="hoverResult(r)" @mouseleave="unhoverResult()"
-              @click="selectResult(r)">
+            <div class="sidebar-result" :class="{active: activeResult===r.unit_id}" @mouseenter="hoverResult(r)"
+              @mouseleave="unhoverResult()" @click="selectResult(r)">
               <div style="display:flex;align-items:baseline;gap:0.4rem;margin-bottom:0.2rem">
                 <div class="sr-ref" :style="`color:${tradColor(r.tradition)}`" x-text="r.label || ''"></div>
                 <span class="sr-level" x-show="r.height > 0"
@@ -334,8 +311,8 @@
               </div>
               <div class="sr-trad" x-text="`${r.tradition} · ${shortName(r.corpus)}`"></div>
               <div class="sr-text" x-text="r.text"></div>
-              <div class="sr-sim" x-show="r.similarity != null"
-                x-text="`${(r.similarity*100).toFixed(1)}% similar`"></div>
+              <div class="sr-sim" x-show="r.similarity != null" x-text="`${(r.similarity*100).toFixed(1)}% similar`">
+              </div>
               <button class="sidebar-btn secondary" style="margin-top:0.4rem;font-size:0.78rem;padding:0.3rem 0.5rem"
                 @click.stop="doSimilarSearch(r.unit_id, r.height)">Find similar</button>
             </div>

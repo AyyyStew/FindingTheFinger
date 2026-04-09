@@ -74,6 +74,36 @@
   font-weight: 600;
 }
 
+.about-card ul {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0.6rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.about-card ul li {
+  font-size: 0.9rem;
+  line-height: 1.75;
+  color: var(--text);
+  padding-left: 1.1rem;
+  position: relative;
+}
+
+.about-card ul li::before {
+  content: '—';
+  position: absolute;
+  left: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.about-card ul li strong {
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .about-card hr {
   border: none;
   border-top: 1px solid var(--border);
@@ -121,7 +151,9 @@
   font-size: 0.875rem;
   font-weight: 600;
   text-decoration: none;
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .about-link:hover {
@@ -133,4 +165,9 @@
   opacity: 0.45;
   cursor: not-allowed;
   pointer-events: none;
+}
+
+.disclaimer-heading {
+  font-weight: bold;
+  color: #e04040;
 }

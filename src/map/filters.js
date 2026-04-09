@@ -97,16 +97,14 @@ export function toggleAllPoints() {
   this.render('toggle-all-points')
 }
 
+// Fine-grained: per-level labels at h>1 (fallback to max h per corpus)
 export function toggleAllLabels() {
   const anyOn = Object.values(this.tradState).some(ts =>
-    ts.aggregate.labels ||
     Object.values(ts.corpora).some(cs =>
-      cs.aggregate.labels || Object.values(cs.levels).some(ls => ls.labels)))
+      Object.values(cs.levels).some(ls => ls.labels)))
   const newVal = !anyOn
   for (const ts of Object.values(this.tradState)) {
-    ts.aggregate.labels = newVal
     for (const cs of Object.values(ts.corpora)) {
-      cs.aggregate.labels = newVal
       if (newVal) {
         const heights = Object.keys(cs.levels).map(Number)
         const highHeights = heights.filter(h => h > 1)
@@ -119,6 +117,19 @@ export function toggleAllLabels() {
     }
   }
   this.render('toggle-all-labels')
+}
+
+// Overview: tradition name labels + corpus name labels
+export function toggleOverviewLabels() {
+  const anyOn = Object.values(this.tradState).some(ts =>
+    ts.aggregate.labels ||
+    Object.values(ts.corpora).some(cs => cs.aggregate.labels))
+  const newVal = !anyOn
+  for (const ts of Object.values(this.tradState)) {
+    ts.aggregate.labels = newVal
+    for (const cs of Object.values(ts.corpora)) cs.aggregate.labels = newVal
+  }
+  this.render('toggle-overview-labels')
 }
 
 export function toggleAllKde() {

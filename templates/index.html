@@ -1,218 +1,221 @@
 {% extends "base.html" %}
 
-{% block title %}Finding The Finger: Passage Similarity Search{% endblock %}
+{% block title %}Passage Similarity Search - Finding The Finger{% endblock %}
 
 {% block head %}{% endblock %}
 
 {% block content %}
-  <div x-data="app" x-cloak class="container">
+<div x-data="app" x-cloak class="container">
 
-    <header class="page-header">
-      <h1>Passage Similarity Search</h1>
-      <p>Find semantically similar passages across sacred traditions</p>
-    </header>
+  <header class="page-header">
+    <h1>Passage Similarity Search</h1>
+    <p>Find semantically similar passages across sacred traditions</p>
+  </header>
 
-    <!-- Control panel -->
-    <div class="search-card" style="margin-bottom:1.5rem">
+  <!-- Control panel -->
+  <div class="search-card" style="margin-bottom:1.5rem">
 
-      <!-- Tabs -->
-      <div class="tabs" style="margin-bottom:1.25rem">
-        <button class="tab-btn" :class="{active: activeTab==='verse'}" @click="activeTab='verse'">Passage Search</button>
-        <button class="tab-btn" :class="{active: activeTab==='text'}" @click="activeTab='text'">Free Text Search</button>
+    <!-- Tabs -->
+    <div class="tabs" style="margin-bottom:1.25rem">
+      <button class="tab-btn" :class="{active: activeTab==='verse'}" @click="activeTab='verse'">Passage Search</button>
+      <button class="tab-btn" :class="{active: activeTab==='text'}" @click="activeTab='text'">Free Text Search</button>
+    </div>
+
+    <!-- Passage inputs -->
+    <div x-show="activeTab==='verse'">
+      <div class="row">
+        <div class="field">
+          <label>Corpus</label>
+          <select x-model="selectedCorpus"
+            @change="acOpen=false; acValid=false; acSelectedNode=null; targetHeight=null; refInput=''; sourceVerse=null">
+            <template x-for="c in corpora" :key="c.corpus">
+              <option :value="c.corpus" x-text="`${c.corpus} (${c.tradition})`"></option>
+            </template>
+          </select>
+        </div>
+        <div class="field">
+          <label>Passage</label>
+          <div class="autocomplete-wrap" @click.outside="acOpen=false">
+            <input type="text" x-model="refInput" autocomplete="off" placeholder="e.g. John 3:16 or Genesis 1"
+              @focus="acFocus()" @input="acInput()" @keydown="acKeydown($event)" />
+            <div x-show="acOpen" class="autocomplete-dropdown">
+              <template x-if="acItems.length === 0">
+                <div class="ac-empty">No matches</div>
+              </template>
+              <template x-for="(item, i) in acItems" :key="item.id">
+                <div class="ac-item" :class="{active: acActive===i}"
+                  :style="`padding-left:${0.85 + item.depth * 0.9}rem`" @mousedown.prevent="acSelect(item)">
+                  <span x-text="item.label"></span>
+                  <span class="ac-level" x-text="item.level_name"></span>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Height pills — shown after a passage is selected -->
+      <div x-show="acSelectedNode" class="height-pills" style="margin-top:0.75rem">
+        <span class="height-pill-label">Find similar at:</span>
+        <template x-for="(levelName, h) in (acSelectedNode ? corpusLevels(selectedCorpus) : {})" :key="h">
+          <button class="height-pill" :class="{active: targetHeight === parseInt(h)}"
+            @click="targetHeight = parseInt(h)" x-text="levelName">
+          </button>
+        </template>
       </div>
 
-      <!-- Passage inputs -->
-      <div x-show="activeTab==='verse'">
-        <div class="row">
-          <div class="field">
-            <label>Corpus</label>
-            <select x-model="selectedCorpus" @change="acOpen=false; acValid=false; acSelectedNode=null; targetHeight=null; refInput=''; sourceVerse=null">
-              <template x-for="c in corpora" :key="c.corpus">
-                <option :value="c.corpus" x-text="`${c.corpus} (${c.tradition})`"></option>
-              </template>
-            </select>
-          </div>
-          <div class="field">
-            <label>Passage</label>
-            <div class="autocomplete-wrap" @click.outside="acOpen=false">
-              <input type="text" x-model="refInput" autocomplete="off" placeholder="e.g. John 3:16 or Genesis 1"
-                @focus="acFocus()" @input="acInput()" @keydown="acKeydown($event)" />
-              <div x-show="acOpen" class="autocomplete-dropdown">
-                <template x-if="acItems.length === 0">
-                  <div class="ac-empty">No matches</div>
-                </template>
-                <template x-for="(item, i) in acItems" :key="item.id">
-                  <div class="ac-item" :class="{active: acActive===i}"
-                    :style="`padding-left:${0.85 + item.depth * 0.9}rem`"
-                    @mousedown.prevent="acSelect(item)">
-                    <span x-text="item.label"></span>
-                    <span class="ac-level" x-text="item.level_name"></span>
+      <div x-show="sourceVerse" class="result-card" style="margin-top:1rem;border-color:var(--accent)"
+        x-data="{expanded: false, data: null, get leaves() { return this.data?.leaves || []; }, get srcHeight() { return this.data?.height ?? 0; }, get chapters() { const groups=[],seen={}; for(const l of this.leaves){const k=l.parent_label||'';if(!(k in seen)){seen[k]=groups.length;groups.push({label:k,leaves:[],open:false});}groups[seen[k]].leaves.push(l);} return groups; }}"
+        x-init="$watch('sourceVerse', v => { if (v?.id) { data=null; fetch(`/api/v1/unit/${v.id}/leaves`).then(r=>r.ok?r.json():null).then(d=>{if(d)data=d;}).catch(()=>{}); } })">
+        <div class="result-meta">
+          <span class="result-ref" :style="`color:${tradColor(sourceVerse?.tradition)}`"
+            x-text="sourceVerse?.label || ''"></span>
+          <span class="badge badge-corpus" :style="corpusBadgeStyle(sourceVerse?.corpus, sourceVerse?.tradition)">
+            <span x-text="corpusEmoji(sourceVerse?.corpus, sourceVerse?.tradition)"></span>
+            <span x-text="shortName(sourceVerse?.corpus || '')"></span>
+          </span>
+          <span class="badge badge-tradition" :style="tradBadgeStyle(sourceVerse?.tradition)">
+            <span x-text="tradEmoji(sourceVerse?.tradition)"></span>
+            <span x-text="sourceVerse?.tradition"></span>
+          </span>
+        </div>
+        <template x-if="data !== null && leaves.length > 0">
+          <div>
+            <template x-if="!expanded">
+              <div>
+                <div class="preview-label" :style="`color:${tradColor(sourceVerse?.tradition)}`"
+                  x-text="`Opening · ${leaves[0].label}`"></div>
+                <div class="result-text" x-text="leaves[0].text"></div>
+              </div>
+            </template>
+            <template x-if="expanded && srcHeight >= 2">
+              <div class="chapter-accordion">
+                <template x-for="ch in chapters" :key="ch.label">
+                  <div class="chapter-group">
+                    <button class="chapter-header" @click="ch.open = !ch.open"
+                      :style="`color:${tradColor(sourceVerse?.tradition)}`">
+                      <span x-text="ch.label"></span>
+                      <span class="chapter-chevron" :class="{open: ch.open}">▶</span>
+                    </button>
+                    <template x-if="ch.open">
+                      <div class="leaf-scroll-box">
+                        <template x-for="leaf in ch.leaves" :key="leaf.label">
+                          <div class="leaf-row">
+                            <span class="leaf-label" :style="`color:${tradColor(sourceVerse?.tradition)}`"
+                              x-text="leaf.label"></span>
+                            <span class="leaf-text" x-text="leaf.text"></span>
+                          </div>
+                        </template>
+                      </div>
+                    </template>
                   </div>
                 </template>
               </div>
-            </div>
+            </template>
+            <template x-if="expanded && srcHeight < 2">
+              <div class="leaf-scroll-box">
+                <template x-for="leaf in leaves" :key="leaf.label">
+                  <div class="leaf-row">
+                    <span class="leaf-label" :style="`color:${tradColor(sourceVerse?.tradition)}`"
+                      x-text="leaf.label"></span>
+                    <span class="leaf-text" x-text="leaf.text"></span>
+                  </div>
+                </template>
+              </div>
+            </template>
+            <button x-show="leaves.length > 1" class="expand-btn" @click="expanded = !expanded"
+              x-text="expanded ? '▲ Collapse' : (srcHeight >= 2 ? `▼ Show ${chapters.length} chapters` : `▼ Show all ${leaves.length} verses`)"></button>
           </div>
-        </div>
-        <!-- Height pills — shown after a passage is selected -->
-        <div x-show="acSelectedNode" class="height-pills" style="margin-top:0.75rem">
-          <span class="height-pill-label">Find similar at:</span>
-          <template x-for="(levelName, h) in (acSelectedNode ? corpusLevels(selectedCorpus) : {})" :key="h">
-            <button class="height-pill"
-              :class="{active: targetHeight === parseInt(h)}"
-              @click="targetHeight = parseInt(h)"
-              x-text="levelName">
-            </button>
-          </template>
-        </div>
-
-        <div x-show="sourceVerse" class="result-card" style="margin-top:1rem;border-color:var(--accent)"
-          x-data="{expanded: false, data: null, get leaves() { return this.data?.leaves || []; }, get srcHeight() { return this.data?.height ?? 0; }, get chapters() { const groups=[],seen={}; for(const l of this.leaves){const k=l.parent_label||'';if(!(k in seen)){seen[k]=groups.length;groups.push({label:k,leaves:[],open:false});}groups[seen[k]].leaves.push(l);} return groups; }}"
-          x-init="$watch('sourceVerse', v => { if (v?.id) { data=null; fetch(`/api/v1/unit/${v.id}/leaves`).then(r=>r.ok?r.json():null).then(d=>{if(d)data=d;}).catch(()=>{}); } })">
-          <div class="result-meta">
-            <span class="result-ref" :style="`color:${tradColor(sourceVerse?.tradition)}`" x-text="sourceVerse?.label || ''"></span>
-            <span class="badge badge-corpus" :style="corpusBadgeStyle(sourceVerse?.corpus, sourceVerse?.tradition)">
-              <span x-text="corpusEmoji(sourceVerse?.corpus, sourceVerse?.tradition)"></span>
-              <span x-text="shortName(sourceVerse?.corpus || '')"></span>
-            </span>
-            <span class="badge badge-tradition" :style="tradBadgeStyle(sourceVerse?.tradition)">
-              <span x-text="tradEmoji(sourceVerse?.tradition)"></span>
-              <span x-text="sourceVerse?.tradition"></span>
-            </span>
-          </div>
-          <template x-if="data !== null && leaves.length > 0">
-            <div>
-              <template x-if="!expanded">
-                <div>
-                  <div class="preview-label" :style="`color:${tradColor(sourceVerse?.tradition)}`"
-                    x-text="`Opening · ${leaves[0].label}`"></div>
-                  <div class="result-text" x-text="leaves[0].text"></div>
-                </div>
-              </template>
-              <template x-if="expanded && srcHeight >= 2">
-                <div class="chapter-accordion">
-                  <template x-for="ch in chapters" :key="ch.label">
-                    <div class="chapter-group">
-                      <button class="chapter-header" @click="ch.open = !ch.open" :style="`color:${tradColor(sourceVerse?.tradition)}`">
-                        <span x-text="ch.label"></span>
-                        <span class="chapter-chevron" :class="{open: ch.open}">▶</span>
-                      </button>
-                      <template x-if="ch.open">
-                        <div class="leaf-scroll-box">
-                          <template x-for="leaf in ch.leaves" :key="leaf.label">
-                            <div class="leaf-row">
-                              <span class="leaf-label" :style="`color:${tradColor(sourceVerse?.tradition)}`" x-text="leaf.label"></span>
-                              <span class="leaf-text" x-text="leaf.text"></span>
-                            </div>
-                          </template>
-                        </div>
-                      </template>
-                    </div>
-                  </template>
-                </div>
-              </template>
-              <template x-if="expanded && srcHeight < 2">
-                <div class="leaf-scroll-box">
-                  <template x-for="leaf in leaves" :key="leaf.label">
-                    <div class="leaf-row">
-                      <span class="leaf-label" :style="`color:${tradColor(sourceVerse?.tradition)}`" x-text="leaf.label"></span>
-                      <span class="leaf-text" x-text="leaf.text"></span>
-                    </div>
-                  </template>
-                </div>
-              </template>
-              <button x-show="leaves.length > 1" class="expand-btn" @click="expanded = !expanded"
-                x-text="expanded ? '▲ Collapse' : (srcHeight >= 2 ? `▼ Show ${chapters.length} chapters` : `▼ Show all ${leaves.length} verses`)"></button>
-            </div>
-          </template>
-          <template x-if="data === null && sourceVerse">
-            <div class="result-text" x-text="sourceVerse?.text || ''"></div>
-          </template>
-        </div>
+        </template>
+        <template x-if="data === null && sourceVerse">
+          <div class="result-text" x-text="sourceVerse?.text || ''"></div>
+        </template>
       </div>
-
-      <!-- Free text input -->
-      <div x-show="activeTab==='text'">
-        <div class="field" style="margin-bottom:0">
-          <label>Query</label>
-          <input type="text" x-model="queryInput" placeholder="e.g. Love your enemies and pray for them"
-            @keydown.enter="doTextSearch()" />
-        </div>
-      </div>
-
-      <!-- Divider -->
-      <hr style="border:none;border-top:1px solid var(--border);margin:1.25rem 0">
-
-      <!-- Tradition & corpus filters -->
-      <div x-show="corpora.length > 0">
-        <div class="filters-label">Tradition</div>
-        <div class="filter-chips" style="margin-bottom:0.75rem">
-          <template x-for="t in traditions" :key="t">
-            <label class="chip" :class="{checked: tradEnabled[t]}"
-              :style="tradEnabled[t] ? `background:${tradColor(t)};border-color:${tradColor(t)};color:#0f1117` : ''"
-              @click.prevent="toggleTradition(t)">
-              <input type="checkbox" :checked="tradEnabled[t]" @click.stop />
-              <span class="chip-icon" x-text="tradEmoji(t)"></span>
-              <span x-text="t"></span>
-            </label>
-          </template>
-        </div>
-        <div class="filters-label">Corpus</div>
-        <div class="filter-chips">
-          <template x-for="c in corpora" :key="c.corpus">
-            <label class="chip" :class="{checked: corpusEnabled[c.corpus], dim: !tradEnabled[c.tradition]}"
-              :style="corpusEnabled[c.corpus] ? `background:${tradColor(c.tradition)};border-color:${tradColor(c.tradition)};color:#0f1117` : ''"
-              :title="c.corpus" @click.prevent="toggleCorpus(c.corpus, c.tradition)">
-              <input type="checkbox" :checked="corpusEnabled[c.corpus]" @click.stop />
-              <span class="chip-icon" x-text="corpusEmoji(c.corpus, c.tradition)"></span>
-              <span x-text="shortName(c.corpus)"></span>
-            </label>
-          </template>
-        </div>
-      </div>
-
-      <!-- Search button -->
-      <button class="search-btn" style="margin-top:1.25rem"
-        :disabled="loading || (activeTab==='verse' ? !acValid : !queryInput.trim())"
-        @click="activeTab==='verse' ? doVerseSearch() : doTextSearch()">
-        Search
-      </button>
-
     </div>
 
-    <div id="results-anchor"></div>
-
-    <!-- Loading -->
-    <div x-show="loading" class="status">
-      <span class="spinner"></span>Searching…
+    <!-- Free text input -->
+    <div x-show="activeTab==='text'">
+      <div class="field" style="margin-bottom:0">
+        <label>Query</label>
+        <input type="text" x-model="queryInput" placeholder="e.g. Love your enemies and pray for them"
+          @keydown.enter="doTextSearch()" />
+      </div>
     </div>
 
-    <!-- Error -->
-    <div x-show="!loading && errorMsg" class="status error" x-text="errorMsg"></div>
+    <!-- Divider -->
+    <hr style="border:none;border-top:1px solid var(--border);margin:1.25rem 0">
 
-    <!-- No results -->
-    <div x-show="!loading && !errorMsg && searched && cards.length === 0" class="status">
-      No results found.
+    <!-- Tradition & corpus filters -->
+    <div x-show="corpora.length > 0">
+      <div class="filters-label">Tradition</div>
+      <div class="filter-chips" style="margin-bottom:0.75rem">
+        <template x-for="t in traditions" :key="t">
+          <label class="chip" :class="{checked: tradEnabled[t]}"
+            :style="tradEnabled[t] ? `background:${tradColor(t)};border-color:${tradColor(t)};color:#0f1117` : ''"
+            @click.prevent="toggleTradition(t)">
+            <input type="checkbox" :checked="tradEnabled[t]" @click.stop />
+            <span class="chip-icon" x-text="tradEmoji(t)"></span>
+            <span x-text="t"></span>
+          </label>
+        </template>
+      </div>
+      <div class="filters-label">Corpus</div>
+      <div class="filter-chips">
+        <template x-for="c in corpora" :key="c.corpus">
+          <label class="chip" :class="{checked: corpusEnabled[c.corpus], dim: !tradEnabled[c.tradition]}"
+            :style="corpusEnabled[c.corpus] ? `background:${tradColor(c.tradition)};border-color:${tradColor(c.tradition)};color:#0f1117` : ''"
+            :title="c.corpus" @click.prevent="toggleCorpus(c.corpus, c.tradition)">
+            <input type="checkbox" :checked="corpusEnabled[c.corpus]" @click.stop />
+            <span class="chip-icon" x-text="corpusEmoji(c.corpus, c.tradition)"></span>
+            <span x-text="shortName(c.corpus)"></span>
+          </label>
+        </template>
+      </div>
     </div>
 
-    <!-- Results -->
-    <div x-show="cards.length > 0">
-      <!-- Searched passage summary -->
-      <div class="results-header">
-        <h2 x-text="lastParams?.type === 'similar' ? 'Similar passages' : 'Results'"></h2>
-        <span class="count" x-text="`${cards.length} shown`"></span>
-      </div>
-      <div x-show="lastParams?.type === 'similar' && sourceVerse" class="search-origin-card">
-        <span class="search-origin-label">Searched passage</span>
-        <span class="search-origin-ref" :style="`color:${tradColor(sourceVerse?.tradition)}`" x-text="sourceVerse?.label"></span>
-        <span class="badge badge-corpus" :style="corpusBadgeStyle(sourceVerse?.corpus, sourceVerse?.tradition)">
-          <span x-text="corpusEmoji(sourceVerse?.corpus, sourceVerse?.tradition)"></span>
-          <span x-text="shortName(sourceVerse?.corpus || '')"></span>
-        </span>
-      </div>
-      <hr x-show="cards.length > 0" style="border:none;border-top:1px solid var(--border);margin:0.75rem 0 1rem">
+    <!-- Search button -->
+    <button class="search-btn" style="margin-top:1.25rem"
+      :disabled="loading || (activeTab==='verse' ? !acValid : !queryInput.trim())"
+      @click="activeTab==='verse' ? doVerseSearch() : doTextSearch()">
+      Search
+    </button>
 
-      <template x-for="r in cards" :key="r.unit_id">
-        <div class="result-card" x-data="{
+  </div>
+
+  <div id="results-anchor"></div>
+
+  <!-- Loading -->
+  <div x-show="loading" class="status">
+    <span class="spinner"></span>Searching…
+  </div>
+
+  <!-- Error -->
+  <div x-show="!loading && errorMsg" class="status error" x-text="errorMsg"></div>
+
+  <!-- No results -->
+  <div x-show="!loading && !errorMsg && searched && cards.length === 0" class="status">
+    No results found.
+  </div>
+
+  <!-- Results -->
+  <div x-show="cards.length > 0">
+    <!-- Searched passage summary -->
+    <div class="results-header">
+      <h2 x-text="lastParams?.type === 'similar' ? 'Similar passages' : 'Results'"></h2>
+      <span class="count" x-text="`${cards.length} shown`"></span>
+    </div>
+    <div x-show="lastParams?.type === 'similar' && sourceVerse" class="search-origin-card">
+      <span class="search-origin-label">Searched passage</span>
+      <span class="search-origin-ref" :style="`color:${tradColor(sourceVerse?.tradition)}`"
+        x-text="sourceVerse?.label"></span>
+      <span class="badge badge-corpus" :style="corpusBadgeStyle(sourceVerse?.corpus, sourceVerse?.tradition)">
+        <span x-text="corpusEmoji(sourceVerse?.corpus, sourceVerse?.tradition)"></span>
+        <span x-text="shortName(sourceVerse?.corpus || '')"></span>
+      </span>
+    </div>
+    <hr x-show="cards.length > 0" style="border:none;border-top:1px solid var(--border);margin:0.75rem 0 1rem">
+
+    <template x-for="r in cards" :key="r.unit_id">
+      <div class="result-card" x-data="{
             expanded: false,
             data: null,
             get leaves() { return this.data?.leaves || []; },
@@ -228,100 +231,99 @@
               }
               return groups;
             },
-          }"
-          x-init="
+          }" x-init="
             fetch(`/api/v1/unit/${r.unit_id}/leaves`)
               .then(res => res.ok ? res.json() : null)
               .then(d => { if (d) data = d; })
               .catch(() => {});
           ">
-          <!-- Row 1: label ··· corpus · tradition -->
-          <div class="result-meta">
-            <span class="result-ref" :style="`color:${tradColor(r.tradition)}`" x-text="r.label || ''"></span>
-            <span class="badge badge-corpus" :style="corpusBadgeStyle(r.corpus, r.tradition)">
-              <span x-text="corpusEmoji(r.corpus, r.tradition)"></span>
-              <span x-text="shortName(r.corpus)"></span>
-            </span>
-            <span class="badge badge-tradition" :style="tradBadgeStyle(r.tradition)">
-              <span x-text="tradEmoji(r.tradition)"></span>
-              <span x-text="r.tradition"></span>
-            </span>
-          </div>
-          <!-- Row 2: similarity bar -->
-          <div class="similarity-bar">
-            <div class="bar-track">
-              <div class="bar-fill" :style="`width:${(r.similarity*100).toFixed(1)}%`"></div>
-            </div>
-            <span class="sim-score" x-text="`${(r.similarity*100).toFixed(1)}%`"></span>
-          </div>
-          <!-- Row 3: text body -->
-          <template x-if="data === null">
-            <div class="result-text" style="color:var(--muted);font-size:0.85rem">Loading…</div>
-          </template>
-          <template x-if="data !== null && leaves.length === 0">
-            <div class="result-text" style="color:var(--muted);font-size:0.85rem">No text available.</div>
-          </template>
-          <template x-if="data !== null && leaves.length > 0">
-            <div>
-              <!-- Collapsed: first leaf as preview with label -->
-              <template x-if="!expanded">
-                <div>
-                  <div class="preview-label" :style="`color:${tradColor(r.tradition)}`"
-                    x-text="`Opening · ${leaves[0].label}`"></div>
-                  <div class="result-text" x-text="leaves[0].text"></div>
-                </div>
-              </template>
-
-              <!-- Expanded — chapter accordion (h>=2) -->
-              <template x-if="expanded && srcHeight >= 2">
-                <div class="chapter-accordion">
-                  <template x-for="ch in chapters" :key="ch.label">
-                    <div class="chapter-group">
-                      <button class="chapter-header" @click="ch.open = !ch.open"
-                        :style="`color:${tradColor(r.tradition)}`">
-                        <span x-text="ch.label"></span>
-                        <span class="chapter-chevron" :class="{open: ch.open}">▶</span>
-                      </button>
-                      <template x-if="ch.open">
-                        <div class="leaf-scroll-box">
-                          <template x-for="leaf in ch.leaves" :key="leaf.label">
-                            <div class="leaf-row">
-                              <span class="leaf-label" :style="`color:${tradColor(r.tradition)}`" x-text="leaf.label"></span>
-                              <span class="leaf-text" x-text="leaf.text"></span>
-                            </div>
-                          </template>
-                        </div>
-                      </template>
-                    </div>
-                  </template>
-                </div>
-              </template>
-
-              <!-- Expanded — scroll box (h=1, single chapter) -->
-              <template x-if="expanded && srcHeight < 2">
-                <div class="leaf-scroll-box">
-                  <template x-for="leaf in leaves" :key="leaf.label">
-                    <div class="leaf-row">
-                      <span class="leaf-label" :style="`color:${tradColor(r.tradition)}`" x-text="leaf.label"></span>
-                      <span class="leaf-text" x-text="leaf.text"></span>
-                    </div>
-                  </template>
-                </div>
-              </template>
-
-              <button x-show="leaves.length > 1" class="expand-btn"
-                @click="expanded = !expanded"
-                x-text="expanded ? '▲ Collapse' : (srcHeight >= 2 ? `▼ Show ${chapters.length} chapters` : `▼ Show all ${leaves.length} verses`)">
-              </button>
-            </div>
-          </template>
+        <!-- Row 1: label ··· corpus · tradition -->
+        <div class="result-meta">
+          <span class="result-ref" :style="`color:${tradColor(r.tradition)}`" x-text="r.label || ''"></span>
+          <span class="badge badge-corpus" :style="corpusBadgeStyle(r.corpus, r.tradition)">
+            <span x-text="corpusEmoji(r.corpus, r.tradition)"></span>
+            <span x-text="shortName(r.corpus)"></span>
+          </span>
+          <span class="badge badge-tradition" :style="tradBadgeStyle(r.tradition)">
+            <span x-text="tradEmoji(r.tradition)"></span>
+            <span x-text="r.tradition"></span>
+          </span>
         </div>
-      </template>
+        <!-- Row 2: similarity bar -->
+        <div class="similarity-bar">
+          <div class="bar-track">
+            <div class="bar-fill" :style="`width:${(r.similarity*100).toFixed(1)}%`"></div>
+          </div>
+          <span class="sim-score" x-text="`${(r.similarity*100).toFixed(1)}%`"></span>
+        </div>
+        <!-- Row 3: text body -->
+        <template x-if="data === null">
+          <div class="result-text" style="color:var(--muted);font-size:0.85rem">Loading…</div>
+        </template>
+        <template x-if="data !== null && leaves.length === 0">
+          <div class="result-text" style="color:var(--muted);font-size:0.85rem">No text available.</div>
+        </template>
+        <template x-if="data !== null && leaves.length > 0">
+          <div>
+            <!-- Collapsed: first leaf as preview with label -->
+            <template x-if="!expanded">
+              <div>
+                <div class="preview-label" :style="`color:${tradColor(r.tradition)}`"
+                  x-text="`Opening · ${leaves[0].label}`"></div>
+                <div class="result-text" x-text="leaves[0].text"></div>
+              </div>
+            </template>
 
-      <button class="load-more-btn" x-show="hasMore" :disabled="loading" @click="loadMore()">Load more</button>
-    </div>
+            <!-- Expanded — chapter accordion (h>=2) -->
+            <template x-if="expanded && srcHeight >= 2">
+              <div class="chapter-accordion">
+                <template x-for="ch in chapters" :key="ch.label">
+                  <div class="chapter-group">
+                    <button class="chapter-header" @click="ch.open = !ch.open"
+                      :style="`color:${tradColor(r.tradition)}`">
+                      <span x-text="ch.label"></span>
+                      <span class="chapter-chevron" :class="{open: ch.open}">▶</span>
+                    </button>
+                    <template x-if="ch.open">
+                      <div class="leaf-scroll-box">
+                        <template x-for="leaf in ch.leaves" :key="leaf.label">
+                          <div class="leaf-row">
+                            <span class="leaf-label" :style="`color:${tradColor(r.tradition)}`"
+                              x-text="leaf.label"></span>
+                            <span class="leaf-text" x-text="leaf.text"></span>
+                          </div>
+                        </template>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+              </div>
+            </template>
 
-  </div><!-- /x-data -->
+            <!-- Expanded — scroll box (h=1, single chapter) -->
+            <template x-if="expanded && srcHeight < 2">
+              <div class="leaf-scroll-box">
+                <template x-for="leaf in leaves" :key="leaf.label">
+                  <div class="leaf-row">
+                    <span class="leaf-label" :style="`color:${tradColor(r.tradition)}`" x-text="leaf.label"></span>
+                    <span class="leaf-text" x-text="leaf.text"></span>
+                  </div>
+                </template>
+              </div>
+            </template>
+
+            <button x-show="leaves.length > 1" class="expand-btn" @click="expanded = !expanded"
+              x-text="expanded ? '▲ Collapse' : (srcHeight >= 2 ? `▼ Show ${chapters.length} chapters` : `▼ Show all ${leaves.length} verses`)">
+            </button>
+          </div>
+        </template>
+      </div>
+    </template>
+
+    <button class="load-more-btn" x-show="hasMore" :disabled="loading" @click="loadMore()">Load more</button>
+  </div>
+
+</div><!-- /x-data -->
 {% endblock %}
 
 {% block scripts %}
